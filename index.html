@@ -97,7 +97,7 @@
       color: var(--hint);
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin: 18px 0 8px;
+      margin: 12px 0 6px;
     }
     .section-header:first-child { margin-top: 0; }
 
@@ -224,28 +224,28 @@
     }
 
     /* ── Stats ── */
-    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
     .stat-card {
       background: var(--bg-secondary);
-      border-radius: 12px;
-      padding: 16px 12px;
+      border-radius: 10px;
+      padding: 10px 8px;
       text-align: center;
     }
     .stat-card.full { grid-column: 1 / -1; }
-    .stat-value { font-size: 30px; font-weight: 700; color: var(--accent); line-height: 1; }
-    .stat-label { font-size: 12px; color: var(--hint); margin-top: 4px; }
+    .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--hint); margin-top: 2px; }
 
     .list-block {
       background: var(--bg-secondary);
-      border-radius: 12px;
-      padding: 4px 12px;
-      margin-bottom: 14px;
+      border-radius: 10px;
+      padding: 2px 12px;
+      margin-bottom: 10px;
     }
     .list-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 0;
+      padding: 7px 0;
       border-bottom: 1px solid var(--bg);;
-      font-size: 14px;
+      font-size: 13px;
     }
     .list-row:last-child { border-bottom: none; }
     .list-row b { font-weight: 600; }
@@ -761,23 +761,13 @@ async function renderStats() {
       ).join('')
     : '<div class="list-row" style="color:var(--hint)">Нет данных</div>';
 
-  const deadlines = (s.upcomingDeadlines || []).length
-    ? s.upcomingDeadlines.map(d =>
-        `<div class="list-row"><span>#${d.id} ${esc(d.name)}</span><b>${d.deadline}</b></div>`
-      ).join('')
-    : '<div class="list-row" style="color:var(--hint)">Дедлайнов нет 🏖</div>';
-
   el.innerHTML = `
     <div class="section-header">Заказы</div>
-    <div class="stats-grid">
+    <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
       <div class="stat-card"><div class="stat-value">${s.activeCount||0}</div><div class="stat-label">Активных</div></div>
-      <div class="stat-card"><div class="stat-value">${s.archiveCount||0}</div><div class="stat-label">В архиве</div></div>
-    </div>
-
-    <div class="section-header">Типы</div>
-    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value">${s.archiveCount||0}</div><div class="stat-label">Архив</div></div>
       <div class="stat-card"><div class="stat-value">${s.typeOrder||0}</div><div class="stat-label">На заказ</div></div>
-      <div class="stat-card"><div class="stat-value">${s.typeStock||0}</div><div class="stat-label">Из наличия</div></div>
+      <div class="stat-card"><div class="stat-value">${s.typeStock||0}</div><div class="stat-label">Наличие</div></div>
     </div>
 
     <div class="section-header">Доход (архив)</div>
@@ -787,9 +777,6 @@ async function renderStats() {
 
     <div class="section-header">Топ моделей</div>
     <div class="list-block">${topModels}</div>
-
-    <div class="section-header">Дедлайны на этой неделе</div>
-    <div class="list-block">${deadlines}</div>
   `;
 }
 
