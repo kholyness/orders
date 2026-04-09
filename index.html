@@ -288,7 +288,7 @@
     .status-badge {
       font-size: 11px;
       font-weight: 600;
-      padding: 4px 9px;
+      padding: 7px 12px;
       border-radius: 20px;
       flex-shrink: 0;
       margin-left: 10px;
@@ -444,6 +444,10 @@ let _statusPopupOrderId = null;
 function openStatusPopup(e, order) {
   e.stopPropagation();
   const popup = document.getElementById('status-popup');
+  if (popup.style.display === 'block' && _statusPopupOrderId === order.id) {
+    closeStatusPopup();
+    return;
+  }
   _statusPopupOrderId = order.id;
 
   const rect = e.currentTarget.getBoundingClientRect();
