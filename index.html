@@ -2,28 +2,757 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Orders</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Moroska Orders</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: var(--tg-theme-bg-color, #ffffff);
+      --bg-secondary: var(--tg-theme-secondary-bg-color, #f0f0f0);
+      --text: var(--tg-theme-text-color, #000000);
+      --hint: var(--tg-theme-hint-color, #999999);
+      --link: var(--tg-theme-link-color, #2481cc);
+      --accent: var(--tg-theme-button-color, #2481cc);
+      --accent-text: var(--tg-theme-button-text-color, #ffffff);
+      --tab-height: 56px;
+      --sheet-radius: 16px;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background-color: var(--tg-theme-bg-color, #fff);
-      color: var(--tg-theme-text-color, #000);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
+
+    /* ── Main content area ── */
+    #app {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 8px;
+    }
+
+    .tab-content { display: none; padding: 16px 16px 0; }
+    .tab-content.active { display: block; }
+
+    /* ── Tab bar ── */
+    #tab-bar {
+      height: var(--tab-height);
+      display: flex;
+      background: var(--bg);
+      border-top: 1px solid var(--bg-secondary);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      background: none;
+      border: none;
+      color: var(--hint);
+      font-size: 10px;
+      cursor: pointer;
+      transition: color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn .tab-icon { font-size: 22px; line-height: 1; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .card:active { opacity: 0.7; }
+    .card-main { flex: 1; min-width: 0; }
+    .card-id { font-size: 12px; color: var(--hint); margin-bottom: 2px; }
+    .card-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-subtitle { font-size: 13px; color: var(--hint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-chevron { color: var(--hint); font-size: 20px; margin-left: 8px; flex-shrink: 0; }
+
+    /* ── Section headers ── */
+    .section-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--hint);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 18px 0 8px;
+    }
+    .section-header:first-child { margin-top: 0; }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: var(--accent-text);
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-primary:active { opacity: 0.8; }
+    .btn-primary:disabled { opacity: 0.5; }
+
+    .btn-secondary {
+      display: block;
+      width: 100%;
+      padding: 13px;
+      background: var(--bg-secondary);
+      color: var(--text);
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      cursor: pointer;
+      text-align: center;
+      margin-top: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-danger {
+      display: block;
+      width: 100%;
+      padding: 13px;
+      background: #ff3b3022;
+      color: #ff3b30;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      margin-top: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Overlay + Bottom sheet ── */
+    #overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+    }
+    #overlay.visible { opacity: 1; pointer-events: all; }
+
+    #sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--bg);
+      border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+      z-index: 101;
+      max-height: 92dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      padding: 0 16px 40px;
+    }
+    #sheet.visible { transform: translateY(0); }
+
+    .sheet-handle {
+      width: 36px; height: 4px;
+      background: var(--bg-secondary);
+      border-radius: 2px;
+      margin: 12px auto 20px;
+      flex-shrink: 0;
+    }
+
+    /* ── Form fields ── */
+    .field-group { margin-bottom: 14px; }
+    .field-label { font-size: 13px; color: var(--hint); margin-bottom: 5px; }
+
+    .field-input, .field-select, .field-textarea {
+      width: 100%;
+      padding: 11px 12px;
+      background: var(--bg-secondary);
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+      font-family: inherit;
+      -webkit-appearance: none;
+    }
+    .field-textarea { resize: none; min-height: 76px; }
+
+    /* ── Type toggle ── */
+    .type-toggle { display: flex; gap: 8px; }
+    .type-option {
+      flex: 1; padding: 11px; text-align: center;
+      background: var(--bg-secondary);
+      border: 2px solid transparent;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .type-option.selected {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--bg);
+    }
+
+    /* ── Stats ── */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .stat-card {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 16px 12px;
+      text-align: center;
+    }
+    .stat-card.full { grid-column: 1 / -1; }
+    .stat-value { font-size: 30px; font-weight: 700; color: var(--accent); line-height: 1; }
+    .stat-label { font-size: 12px; color: var(--hint); margin-top: 4px; }
+
+    .list-block {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      padding: 4px 12px;
+      margin-bottom: 14px;
+    }
+    .list-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--bg);;
+      font-size: 14px;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row b { font-weight: 600; }
+
+    /* ── Search ── */
+    .search-wrap { position: relative; margin-bottom: 14px; }
+    .search-input {
+      width: 100%;
+      padding: 11px 12px 11px 38px;
+      background: var(--bg-secondary);
+      border: none; border-radius: 10px;
+      font-size: 15px; color: var(--text);
+      outline: none; font-family: inherit;
+      -webkit-appearance: none;
+    }
+    .search-icon {
+      position: absolute; left: 11px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--hint); font-size: 15px;
+      pointer-events: none;
+    }
+
+    /* ── Detail view ── */
+    .detail-rows { margin-bottom: 16px; }
+    .detail-row {
+      display: flex; align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--bg-secondary);
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { font-size: 13px; color: var(--hint); width: 90px; flex-shrink: 0; padding-top: 1px; }
+    .detail-val { font-size: 15px; flex: 1; word-break: break-word; }
+    .detail-link { color: var(--link); text-decoration: none; }
+
+    /* ── Misc ── */
+    .empty { text-align: center; color: var(--hint); padding: 48px 16px; font-size: 15px; }
+    .loading { text-align: center; padding: 48px; color: var(--hint); font-size: 15px; }
+    .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+    .sheet-subtitle { font-size: 13px; color: var(--hint); margin-top: -12px; margin-bottom: 16px; }
   </style>
 </head>
 <body>
 
-  <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-  </script>
+<div id="app">
+  <div id="tab-orders" class="tab-content active"></div>
+  <div id="tab-stats" class="tab-content"></div>
+  <div id="tab-clients" class="tab-content"></div>
+</div>
+
+<nav id="tab-bar">
+  <button class="tab-btn active" data-tab="orders">
+    <span class="tab-icon">📋</span>
+    <span>Заказы</span>
+  </button>
+  <button class="tab-btn" data-tab="stats">
+    <span class="tab-icon">📊</span>
+    <span>Статистика</span>
+  </button>
+  <button class="tab-btn" data-tab="clients">
+    <span class="tab-icon">👤</span>
+    <span>Клиенты</span>
+  </button>
+</nav>
+
+<div id="overlay"></div>
+<div id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheet-content"></div>
+</div>
+
+<script>
+// ── Config ───────────────────────────────────────────────────────────────────
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxMpD14ZU_6c2VrllFKWMB-52SIu1ClWVo79XhiT_ebXlx9In6OaxfRjDJomJuCGPvv/exec';
+const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
+const STATUS_ORDER = ['В работе','Очередь','Пауза','Готово'];
+
+// ── Telegram WebApp ──────────────────────────────────────────────────────────
+const tg = window.Telegram.WebApp;
+tg.expand();
+if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = { orders: [], archive: [], activeTab: 'orders' };
+
+// ── API ──────────────────────────────────────────────────────────────────────
+async function apiGet(action) {
+  const res = await fetch(SCRIPT_URL + '?action=' + action + '&t=' + Date.now(), { redirect: 'follow' });
+  return res.json();
+}
+
+async function apiPost(data) {
+  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), redirect: 'follow' });
+  return res.json();
+}
+
+async function loadData() {
+  const [a, b] = await Promise.all([apiGet('getOrders'), apiGet('getArchive')]);
+  state.orders = a.orders || [];
+  state.archive = b.orders || [];
+}
+
+async function refreshOrders() {
+  const res = await apiGet('getOrders');
+  state.orders = res.orders || [];
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+document.getElementById('tab-bar').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  switchTab(btn.dataset.tab);
+});
+
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+  if (tab === 'orders') renderOrders();
+  if (tab === 'stats') renderStats();
+  if (tab === 'clients') renderClients();
+}
+
+// ── Bottom sheet ─────────────────────────────────────────────────────────────
+const overlay = document.getElementById('overlay');
+const sheet = document.getElementById('sheet');
+const sheetContent = document.getElementById('sheet-content');
+
+function openSheet(html) {
+  sheetContent.innerHTML = html;
+  sheet.scrollTop = 0;
+  overlay.classList.add('visible');
+  sheet.classList.add('visible');
+}
+
+function closeSheet() {
+  overlay.classList.remove('visible');
+  sheet.classList.remove('visible');
+}
+
+overlay.addEventListener('click', closeSheet);
+
+// ── ORDERS TAB ───────────────────────────────────────────────────────────────
+function renderOrders() {
+  const el = document.getElementById('tab-orders');
+
+  const newBtn = '<button class="btn-primary" id="btn-new-order" style="margin-bottom:16px">＋ Новый заказ</button>';
+
+  if (!state.orders.length) {
+    el.innerHTML = newBtn + '<div class="empty">Заказов пока нет</div>';
+    el.querySelector('#btn-new-order').onclick = openNewOrderForm;
+    return;
+  }
+
+  const grouped = {};
+  STATUS_ORDER.forEach(s => { grouped[s] = []; });
+  state.orders.forEach(o => {
+    const s = o.status || 'Очередь';
+    if (!grouped[s]) grouped[s] = [];
+    grouped[s].push(o);
+  });
+
+  let html = newBtn;
+  STATUS_ORDER.forEach(status => {
+    const list = grouped[status];
+    if (!list.length) return;
+    html += `<div class="section-header">${status}</div>`;
+    list.forEach(o => {
+      const sub = [o.model || o.item, o.article].filter(Boolean).join(' · ');
+      html += `
+        <div class="card" data-id="${o.id}">
+          <div class="card-main">
+            <div class="card-id">#${o.id}${o.date ? ' · ' + o.date : ''}</div>
+            <div class="card-title">${esc(o.name) || '—'}</div>
+            <div class="card-subtitle">${esc(sub) || '—'}</div>
+          </div>
+          <div class="card-chevron">›</div>
+        </div>`;
+    });
+  });
+
+  el.innerHTML = html;
+  el.querySelector('#btn-new-order').onclick = openNewOrderForm;
+  el.querySelectorAll('.card[data-id]').forEach(card => {
+    card.onclick = () => openOrderDetail(card.dataset.id, state.orders);
+  });
+}
+
+// ── ORDER DETAIL ─────────────────────────────────────────────────────────────
+function openOrderDetail(id, source) {
+  const order = source.find(o => String(o.id) === String(id));
+  if (!order) return;
+  renderOrderDetail(order, false);
+}
+
+function renderOrderDetail(order, editing) {
+  const statusOptions = ['Очередь','В работе','Пауза','Готово']
+    .map(s => `<option value="${s}"${order.status === s ? ' selected' : ''}>${s}</option>`)
+    .join('');
+  const modelOptions = ['', ...MODELS]
+    .map(m => `<option value="${m}"${order.model === m ? ' selected' : ''}>${m || '— модель —'}</option>`)
+    .join('');
+
+  let html = `<div class="sheet-title">#${order.id} ${esc(order.name) || ''}</div>`;
+
+  if (!editing) {
+    const rows = [
+      ['Изделие', order.item],
+      ['Артикул', order.article],
+      ['Модель', order.model],
+      ['Тип', order.type],
+      ['Детали', order.details],
+      ['Цена', order.price ? order.price + ' RSD' : ''],
+      ['Срок', order.deadline],
+      ['Заметка', order.note],
+    ].filter(([,v]) => v).map(([k, v]) =>
+      `<div class="detail-row"><div class="detail-key">${k}</div><div class="detail-val">${esc(v)}</div></div>`
+    ).join('');
+
+    html += `<div class="detail-rows">${rows || '<div style="color:var(--hint);font-size:14px">Нет данных</div>'}</div>`;
+    html += `<div class="field-group"><div class="field-label">Статус</div><select class="field-select" id="status-select">${statusOptions}</select></div>`;
+    if (order.photo) html += `<div style="margin-bottom:16px"><a class="detail-link" href="${order.photo}" target="_blank">📁 Открыть папку Drive</a></div>`;
+    html += `<button class="btn-secondary" id="btn-edit">Редактировать</button>`;
+    if (order.status === 'Готово') html += `<button class="btn-danger" id="btn-archive">Перенести в архив</button>`;
+  } else {
+    const f = (label, name, value, type = 'text') =>
+      `<div class="field-group"><div class="field-label">${label}</div><input class="field-input" type="${type}" name="${name}" value="${esc(value || '')}"></div>`;
+
+    html += `
+      ${f('Имя', 'name', order.name)}
+      ${f('Изделие', 'item', order.item)}
+      ${f('Артикул', 'article', order.article)}
+      <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model">${modelOptions}</select></div>
+      <div class="field-group">
+        <div class="field-label">Тип</div>
+        <div class="type-toggle">
+          <div class="type-option${order.type !== 'Наличие' ? ' selected' : ''}" data-val="Заказ">Заказ</div>
+          <div class="type-option${order.type === 'Наличие' ? ' selected' : ''}" data-val="Наличие">Наличие</div>
+        </div>
+        <input type="hidden" name="type" value="${order.type || 'Заказ'}">
+      </div>
+      ${f('Детали', 'details', order.details)}
+      ${f('Цена', 'price', order.price, 'number')}
+      ${f('Срок', 'deadline', order.deadline)}
+      ${f('Заметка', 'note', order.note)}
+      <button class="btn-primary" id="btn-save" style="margin-top:8px">Сохранить</button>
+      <button class="btn-secondary" id="btn-cancel-edit">Отмена</button>
+    `;
+  }
+
+  openSheet(html);
+
+  if (!editing) {
+    const sel = document.getElementById('status-select');
+    if (sel) sel.onchange = async () => {
+      await apiPost({ action: 'updateStatus', id: order.id, status: sel.value });
+      order.status = sel.value;
+      await refreshOrders();
+      renderOrderDetail(order, false);
+      if (state.activeTab === 'orders') renderOrders();
+    };
+
+    const btnEdit = document.getElementById('btn-edit');
+    if (btnEdit) btnEdit.onclick = () => renderOrderDetail(order, true);
+
+    const btnArchive = document.getElementById('btn-archive');
+    if (btnArchive) btnArchive.onclick = async () => {
+      btnArchive.disabled = true;
+      btnArchive.textContent = 'Переносим...';
+      await apiPost({ action: 'archiveOrder', id: order.id });
+      const archRes = await apiGet('getArchive');
+      state.archive = archRes.orders || [];
+      await refreshOrders();
+      closeSheet();
+      renderOrders();
+    };
+  } else {
+    sheetContent.querySelectorAll('.type-option').forEach(opt => {
+      opt.onclick = () => {
+        sheetContent.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        sheetContent.querySelector('input[name="type"]').value = opt.dataset.val;
+      };
+    });
+
+    document.getElementById('btn-cancel-edit').onclick = () => renderOrderDetail(order, false);
+
+    document.getElementById('btn-save').onclick = async () => {
+      const btn = document.getElementById('btn-save');
+      btn.disabled = true; btn.textContent = 'Сохраняем...';
+      const data = { action: 'updateOrder', id: order.id };
+      sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+      await apiPost(data);
+      Object.assign(order, data);
+      await refreshOrders();
+      renderOrderDetail(order, false);
+      if (state.activeTab === 'orders') renderOrders();
+    };
+  }
+}
+
+// ── NEW ORDER FORM ────────────────────────────────────────────────────────────
+function openNewOrderForm() {
+  const modelOptions = ['', ...MODELS]
+    .map(m => `<option value="${m}">${m || '— модель —'}</option>`)
+    .join('');
+
+  openSheet(`
+    <div class="sheet-title">Новый заказ</div>
+    <div class="field-group"><div class="field-label">Имя</div><input class="field-input" name="name" placeholder="Имя клиента"></div>
+    <div class="field-group"><div class="field-label">Изделие</div><input class="field-input" name="item" placeholder="Название изделия"></div>
+    <div class="field-group"><div class="field-label">Артикул</div><input class="field-input" name="article" placeholder="Необязательно"></div>
+    <div class="field-group">
+      <div class="field-label">Модель</div>
+      <select class="field-select" name="model">${modelOptions}</select>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Тип</div>
+      <div class="type-toggle">
+        <div class="type-option selected" data-val="Заказ">Заказ</div>
+        <div class="type-option" data-val="Наличие">Наличие</div>
+      </div>
+      <input type="hidden" name="type" value="Заказ">
+    </div>
+    <div class="field-group"><div class="field-label">Детали</div><textarea class="field-textarea" name="details" placeholder="Размер, цвет, материал..."></textarea></div>
+    <div class="field-group"><div class="field-label">Цена (RSD)</div><input class="field-input" name="price" type="number" placeholder="0"></div>
+    <div class="field-group"><div class="field-label">Срок</div><input class="field-input" name="deadline" type="date"></div>
+    <div class="field-group"><div class="field-label">Комментарий</div><input class="field-input" name="comment" placeholder="Необязательно"></div>
+    <button class="btn-primary" id="btn-submit" style="margin-top:8px">Добавить заказ</button>
+    <button class="btn-secondary" id="btn-cancel-new">Отмена</button>
+  `);
+
+  sheetContent.querySelectorAll('.type-option').forEach(opt => {
+    opt.onclick = () => {
+      sheetContent.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      sheetContent.querySelector('input[name="type"]').value = opt.dataset.val;
+    };
+  });
+
+  document.getElementById('btn-cancel-new').onclick = closeSheet;
+
+  document.getElementById('btn-submit').onclick = async () => {
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true; btn.textContent = 'Добавляем...';
+    const data = { action: 'createOrder' };
+    sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+    if (data.deadline) {
+      const p = data.deadline.split('-');
+      if (p.length === 3) data.deadline = p[2] + '.' + p[1] + '.' + p[0];
+    }
+    await apiPost(data);
+    await refreshOrders();
+    closeSheet();
+    renderOrders();
+  };
+}
+
+// ── STATS TAB ─────────────────────────────────────────────────────────────────
+async function renderStats() {
+  const el = document.getElementById('tab-stats');
+  el.innerHTML = '<div class="loading">Загрузка...</div>';
+  let s;
+  try { s = await apiGet('getStats'); } catch (e) {
+    el.innerHTML = '<div class="empty">Ошибка загрузки</div>'; return;
+  }
+
+  const topModels = (s.topModels || []).length
+    ? s.topModels.map((m, i) =>
+        `<div class="list-row"><span>${i+1}. ${esc(m.name)}</span><b>${m.count} шт</b></div>`
+      ).join('')
+    : '<div class="list-row" style="color:var(--hint)">Нет данных</div>';
+
+  const deadlines = (s.upcomingDeadlines || []).length
+    ? s.upcomingDeadlines.map(d =>
+        `<div class="list-row"><span>#${d.id} ${esc(d.name)}</span><b>${d.deadline}</b></div>`
+      ).join('')
+    : '<div class="list-row" style="color:var(--hint)">Дедлайнов нет 🏖</div>';
+
+  el.innerHTML = `
+    <div class="section-header">Заказы</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value">${s.activeCount||0}</div><div class="stat-label">Активных</div></div>
+      <div class="stat-card"><div class="stat-value">${s.archiveCount||0}</div><div class="stat-label">В архиве</div></div>
+    </div>
+
+    <div class="section-header">Типы</div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value">${s.typeOrder||0}</div><div class="stat-label">На заказ</div></div>
+      <div class="stat-card"><div class="stat-value">${s.typeStock||0}</div><div class="stat-label">Из наличия</div></div>
+    </div>
+
+    <div class="section-header">Доход (архив)</div>
+    <div class="stats-grid">
+      <div class="stat-card full"><div class="stat-value">${(s.income||0).toLocaleString('ru')} RSD</div><div class="stat-label">Общий доход</div></div>
+    </div>
+
+    <div class="section-header">Топ моделей</div>
+    <div class="list-block">${topModels}</div>
+
+    <div class="section-header">Дедлайны на этой неделе</div>
+    <div class="list-block">${deadlines}</div>
+  `;
+}
+
+// ── CLIENTS TAB ───────────────────────────────────────────────────────────────
+function renderClients(filter = '') {
+  const el = document.getElementById('tab-clients');
+  const all = state.orders.concat(state.archive);
+
+  const map = {};
+  all.forEach(o => {
+    const name = (o.name || '').trim();
+    if (!name) return;
+    if (!map[name]) map[name] = [];
+    map[name].push(o);
+  });
+
+  let clients = Object.entries(map)
+    .map(([name, orders]) => ({ name, orders }))
+    .sort((a, b) => b.orders.length - a.orders.length);
+
+  if (filter) clients = clients.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()));
+
+  let html = `
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="client-search" placeholder="Поиск по имени" value="${esc(filter)}">
+    </div>`;
+
+  if (!clients.length) {
+    html += '<div class="empty">Клиентов не найдено</div>';
+  } else {
+    clients.forEach(c => {
+      html += `
+        <div class="card" data-client="${esc(c.name)}">
+          <div class="card-main">
+            <div class="card-title">${esc(c.name)}</div>
+            <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}</div>
+          </div>
+          <div class="card-chevron">›</div>
+        </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+  document.getElementById('client-search').oninput = e => renderClients(e.target.value);
+  el.querySelectorAll('.card[data-client]').forEach(card => {
+    card.onclick = () => openClientDetail(card.dataset.client);
+  });
+}
+
+function openClientDetail(name) {
+  const all = state.orders.concat(state.archive);
+  const orders = all.filter(o => (o.name || '').trim() === name)
+    .sort((a, b) => parseInt(b.id) - parseInt(a.id));
+  const totalSpent = state.archive
+    .filter(o => (o.name || '').trim() === name)
+    .reduce((sum, o) => sum + (parseFloat(o.price) || 0), 0);
+
+  const rows = orders.map(o => {
+    const inArchive = !!state.archive.find(a => a.id === o.id);
+    return `
+      <div class="card" data-id="${o.id}" data-src="${inArchive ? 'archive' : 'orders'}">
+        <div class="card-main">
+          <div class="card-id">#${o.id}${o.date ? ' · ' + o.date : ''}</div>
+          <div class="card-title">${esc(o.model || o.item) || '—'}</div>
+          <div class="card-subtitle">${esc(o.status)}${o.price ? ' · ' + o.price + ' RSD' : ''}</div>
+        </div>
+        <div class="card-chevron">›</div>
+      </div>`;
+  }).join('');
+
+  openSheet(`
+    <div class="sheet-title">${esc(name)}</div>
+    <div class="sheet-subtitle">${orders.length} ${declOrders(orders.length)} · ${totalSpent.toLocaleString('ru')} RSD</div>
+    ${rows || '<div class="empty">Нет заказов</div>'}
+  `);
+
+  sheetContent.querySelectorAll('.card[data-id]').forEach(card => {
+    card.onclick = () => {
+      const src = card.dataset.src === 'archive' ? state.archive : state.orders;
+      openOrderDetail(card.dataset.id, src);
+    };
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function declOrders(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'заказ';
+  if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return 'заказа';
+  return 'заказов';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('tab-orders').innerHTML = '<div class="loading">Загрузка...</div>';
+  try {
+    await loadData();
+  } catch (e) {
+    document.getElementById('tab-orders').innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
+    return;
+  }
+  renderOrders();
+}
+
+init();
+</script>
 </body>
 </html>
