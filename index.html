@@ -648,10 +648,10 @@ function renderOrders() {
 function openOrderDetail(id, source) {
   const order = source.find(o => String(o.id) === String(id));
   if (!order) return;
-  renderOrderDetail(order, false);
+  renderOrderDetail(order);
 }
 
-function renderOrderDetail(order, editing) {
+function renderOrderDetail(order) {
   const statusOptions = ['Очередь','В работе','Пауза','Готово']
     .map(s => `<option value="${s}"${order.status === s ? ' selected' : ''}>${s}</option>`)
     .join('');
@@ -659,107 +659,70 @@ function renderOrderDetail(order, editing) {
     .map(m => `<option value="${m}"${order.model === m ? ' selected' : ''}>${m || '— модель —'}</option>`)
     .join('');
 
-  let html = `<div class="sheet-title">#${order.id} ${esc(order.name) || ''}</div>`;
+  const f = (label, name, value, type = 'text') =>
+    `<div class="field-group"><div class="field-label">${label}</div><input class="field-input" type="${type}" name="${name}" value="${esc(value || '')}"></div>`;
 
-  if (!editing) {
-    const rows = [
-      ['Изделие', order.item],
-      ['Артикул', order.article],
-      ['Модель', order.model],
-      ['Тип', order.type],
-      ['Детали', order.details],
-      ['Цена', order.price ? order.price + ' RSD' : ''],
-      ['Срок', order.deadline],
-      ['Заметка', order.note],
-    ].filter(([,v]) => v).map(([k, v]) =>
-      `<div class="detail-row"><div class="detail-key">${k}</div><div class="detail-val">${esc(v)}</div></div>`
-    ).join('');
-
-    html += `<div class="detail-rows">${rows || '<div style="color:var(--hint);font-size:14px">Нет данных</div>'}</div>`;
-    html += `<div class="field-group"><div class="field-label">Статус</div><select class="field-select" id="status-select">${statusOptions}</select></div>`;
-    if (order.photo) html += `<div style="margin-bottom:16px"><a class="detail-link" href="${order.photo}" target="_blank">📁 Открыть папку Drive</a></div>`;
-    html += `<button class="btn-secondary" id="btn-edit">Редактировать</button>`;
-    if (order.status === 'Готово') html += `<button class="btn-danger" id="btn-archive">Перенести в архив</button>`;
-  } else {
-    const f = (label, name, value, type = 'text') =>
-      `<div class="field-group"><div class="field-label">${label}</div><input class="field-input" type="${type}" name="${name}" value="${esc(value || '')}"></div>`;
-
-    html += `
-      ${f('Имя', 'name', order.name)}
-      ${f('Изделие', 'item', order.item)}
-      ${f('Артикул', 'article', order.article)}
-      <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model">${modelOptions}</select></div>
-      <div class="field-group">
-        <div class="field-label">Тип</div>
-        <div class="type-toggle">
-          <div class="type-option${order.type !== 'Наличие' ? ' selected' : ''}" data-val="Заказ">Заказ</div>
-          <div class="type-option${order.type === 'Наличие' ? ' selected' : ''}" data-val="Наличие">Наличие</div>
-        </div>
-        <input type="hidden" name="type" value="${order.type || 'Заказ'}">
+  const html = `
+    <div class="sheet-title">#${order.id} ${esc(order.name) || ''}</div>
+    ${f('Имя', 'name', order.name)}
+    ${f('Изделие', 'item', order.item)}
+    ${f('Артикул', 'article', order.article)}
+    <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model">${modelOptions}</select></div>
+    <div class="field-group">
+      <div class="field-label">Тип</div>
+      <div class="type-toggle">
+        <div class="type-option${order.type !== 'Наличие' ? ' selected' : ''}" data-val="Заказ">Заказ</div>
+        <div class="type-option${order.type === 'Наличие' ? ' selected' : ''}" data-val="Наличие">Наличие</div>
       </div>
-      ${f('Детали', 'details', order.details)}
-      ${f('Цена', 'price', order.price, 'number')}
-      <div class="field-group"><div class="field-label">Срок</div><input class="field-input" type="date" name="deadline" value="${esc(dmyToYmd(order.deadline || ''))}"></div>
-      ${f('Заметка', 'note', order.note)}
-      <button class="btn-primary" id="btn-save" style="margin-top:8px">Сохранить</button>
-      <button class="btn-secondary" id="btn-cancel-edit">Отмена</button>
-    `;
-  }
+      <input type="hidden" name="type" value="${order.type || 'Заказ'}">
+    </div>
+    ${f('Детали', 'details', order.details)}
+    ${f('Цена', 'price', order.price, 'number')}
+    <div class="field-group"><div class="field-label">Срок</div><input class="field-input" type="date" name="deadline" value="${esc(dmyToYmd(order.deadline || ''))}"></div>
+    ${f('Заметка', 'note', order.note)}
+    <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
+    ${order.photo ? `<div style="margin-bottom:16px"><a class="detail-link" href="${order.photo}" target="_blank">📁 Открыть папку Drive</a></div>` : ''}
+    <button class="btn-primary" id="btn-save" style="margin-top:8px">Сохранить</button>
+    ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
+  `;
 
   openSheet(html);
 
-  if (!editing) {
-    const sel = document.getElementById('status-select');
-    if (sel) sel.onchange = async () => {
-      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-      await apiPost({ action: 'updateStatus', id: order.id, status: sel.value });
-      order.status = sel.value;
-      await refreshOrders();
-      renderOrderDetail(order, false);
-      if (state.activeTab === 'orders') renderOrders();
+  sheetContent.querySelectorAll('.type-option').forEach(opt => {
+    opt.onclick = () => {
+      sheetContent.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      sheetContent.querySelector('input[name="type"]').value = opt.dataset.val;
     };
+  });
 
-    const btnEdit = document.getElementById('btn-edit');
-    if (btnEdit) btnEdit.onclick = () => renderOrderDetail(order, true);
+  document.getElementById('btn-save').onclick = async () => {
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true; btn.textContent = 'Сохраняем...';
+    const data = { action: 'updateOrder', id: order.id };
+    sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+    if (data.deadline) {
+      const p = data.deadline.split('-');
+      if (p.length === 3) data.deadline = p[2] + '.' + p[1] + '.' + p[0];
+    }
+    await apiPost(data);
+    Object.assign(order, data);
+    await refreshOrders();
+    renderOrderDetail(order);
+    if (state.activeTab === 'orders') renderOrders();
+  };
 
-    const btnArchive = document.getElementById('btn-archive');
-    if (btnArchive) btnArchive.onclick = async () => {
-      btnArchive.disabled = true;
-      btnArchive.textContent = 'Переносим...';
-      await apiPost({ action: 'archiveOrder', id: order.id });
-      const archRes = await apiGet('getArchive');
-      state.archive = archRes.orders || [];
-      await refreshOrders();
-      closeSheet();
-      renderOrders();
-    };
-  } else {
-    sheetContent.querySelectorAll('.type-option').forEach(opt => {
-      opt.onclick = () => {
-        sheetContent.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
-        opt.classList.add('selected');
-        sheetContent.querySelector('input[name="type"]').value = opt.dataset.val;
-      };
-    });
-
-    document.getElementById('btn-cancel-edit').onclick = () => renderOrderDetail(order, false);
-
-    document.getElementById('btn-save').onclick = async () => {
-      const btn = document.getElementById('btn-save');
-      btn.disabled = true; btn.textContent = 'Сохраняем...';
-      const data = { action: 'updateOrder', id: order.id };
-      sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
-      if (data.deadline) {
-        const p = data.deadline.split('-');
-        if (p.length === 3) data.deadline = p[2] + '.' + p[1] + '.' + p[0];
-      }
-      await apiPost(data);
-      Object.assign(order, data);
-      await refreshOrders();
-      renderOrderDetail(order, false);
-      if (state.activeTab === 'orders') renderOrders();
-    };
-  }
+  const btnArchive = document.getElementById('btn-archive');
+  if (btnArchive) btnArchive.onclick = async () => {
+    btnArchive.disabled = true;
+    btnArchive.textContent = 'Переносим...';
+    await apiPost({ action: 'archiveOrder', id: order.id });
+    const archRes = await apiGet('getArchive');
+    state.archive = archRes.orders || [];
+    await refreshOrders();
+    closeSheet();
+    renderOrders();
+  };
 }
 
 // ── NEW ORDER FORM ────────────────────────────────────────────────────────────
