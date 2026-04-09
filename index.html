@@ -308,8 +308,13 @@
       pointer-events: none;
       z-index: 1000;
       opacity: 0.88;
-      transform: scale(1.03);
+      transform: scale(1.0);
       box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    #drag-ghost.lifted {
+      transform: scale(1.04) rotate(-1deg);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.28);
     }
     .card:active { opacity: 1; }
   </style>
@@ -438,6 +443,7 @@ function startDrag(e, order, cardEl) {
   ghost.style.top  = (e.clientY - dragState.offsetY) + 'px';
   document.body.appendChild(ghost);
   dragState.ghost = ghost;
+  requestAnimationFrame(() => ghost.classList.add('lifted'));
 
   const ph = document.createElement('div');
   ph.className = 'card-placeholder';
@@ -476,6 +482,7 @@ async function onDragEnd(e) {
     targetStatus = sec.dataset.status;
   });
 
+  document.body.style.userSelect = '';
   dragState.ghost.remove();
   dragState.ghost = null;
   dragState.active = false;
@@ -560,6 +567,7 @@ function renderOrders() {
           dragStarted = true;
           card.removeEventListener('pointermove', onMove);
           card.removeEventListener('pointerup', onUp);
+          document.body.style.userSelect = 'none';
           startDrag(ev, order, card);
         }
       }
