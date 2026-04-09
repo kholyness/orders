@@ -84,7 +84,7 @@
     .card:active { opacity: 0.7; }
     .card-main { flex: 1; min-width: 0; }
     .card-id { font-size: 11px; color: var(--hint); margin-bottom: 1px; }
-    .card-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-subtitle { font-size: 12px; color: var(--hint); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-chevron { color: var(--hint); font-size: 20px; margin-left: 8px; flex-shrink: 0; }
 
@@ -536,13 +536,14 @@ function renderOrders() {
       html += `<div class="drop-zone"></div>`;
     } else {
       list.forEach(o => {
-        const sub = [o.model || o.item, o.article].filter(Boolean).join(' · ');
+        const orderTitle = esc(o.item || o.model) || '—';
+        const clientName = esc((o.name || '').replace(/@\S+/g, '').trim()) || '—';
         html += `
           <div class="card" data-id="${o.id}">
             <div class="card-main">
               <div class="card-id">#${o.id}${o.date ? ' · ' + o.date : ''}</div>
-              <div class="card-title">${esc(o.name) || '—'}</div>
-              <div class="card-subtitle">${esc(sub) || '—'}</div>
+              <div class="card-title">${orderTitle}</div>
+              <div class="card-subtitle">${clientName}</div>
             </div>
             <div class="card-chevron">›</div>
           </div>`;
