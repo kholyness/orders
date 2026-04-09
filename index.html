@@ -103,6 +103,44 @@
     }
     .section-header:first-child { margin-top: 0; }
 
+    /* ── Search + New order row ── */
+    .orders-toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .search-input {
+      flex: 1;
+      padding: 9px 12px;
+      background: var(--bg-secondary);
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+      min-width: 0;
+    }
+    .search-input::placeholder { color: var(--hint); }
+    .btn-new-order {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      background: var(--tg-theme-button-color, #2481cc);
+      color: var(--tg-theme-button-text-color, #ffffff);
+      border: none;
+      border-radius: 10px;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: brightness(0.78);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-new-order:active { opacity: 0.7; }
+
     /* ── Buttons ── */
     .btn-primary {
       display: block;
@@ -504,18 +542,29 @@ document.addEventListener('click', e => {
 // ── ORDERS TAB ───────────────────────────────────────────────────────────────
 function renderOrders() {
   const el = document.getElementById('tab-orders');
+  const prevSearch = el.querySelector('.search-input')?.value || '';
 
-  const newBtn = '<button class="btn-primary" id="btn-new-order" style="margin-bottom:16px">＋ Новый заказ</button>';
+  const toolbar = `<div class="orders-toolbar">
+    <input class="search-input" id="order-search" placeholder="🔍 Поиск..." value="${esc(prevSearch)}">
+    <button class="btn-new-order" id="btn-new-order">＋</button>
+  </div>`;
 
   if (!state.orders.length) {
-    el.innerHTML = newBtn + '<div class="empty">Заказов пока нет</div>';
+    el.innerHTML = toolbar + '<div class="empty">Заказов пока нет</div>';
     el.querySelector('#btn-new-order').onclick = openNewOrderForm;
+    el.querySelector('#order-search').addEventListener('input', () => renderOrders());
     return;
   }
+
+  const q = prevSearch.toLowerCase().trim();
 
   const grouped = {};
   STATUS_ORDER.forEach(s => { grouped[s] = []; });
   state.orders.forEach(o => {
+    if (q) {
+      const hay = [o.name, o.item, o.model, String(o.id)].join(' ').toLowerCase();
+      if (!hay.includes(q)) return;
+    }
     const s = o.status || 'Очередь';
     if (!grouped[s]) grouped[s] = [];
     grouped[s].push(o);
@@ -531,7 +580,18 @@ function renderOrders() {
     grouped[s].sort((a, b) => parseDeadline(a.deadline) - parseDeadline(b.deadline));
   });
 
-  let html = newBtn;
+  const totalFiltered = STATUS_ORDER.reduce((n, s) => n + grouped[s].length, 0);
+  let html = toolbar;
+  if (totalFiltered === 0) {
+    html += '<div class="empty">Ничего не найдено</div>';
+    el.innerHTML = html;
+    el.querySelector('#btn-new-order').onclick = openNewOrderForm;
+    const si = el.querySelector('#order-search');
+    si.addEventListener('input', () => renderOrders());
+    si.focus();
+    return;
+  }
+
   STATUS_ORDER.forEach(status => {
     const list = grouped[status];
     if (!list.length) return;
@@ -560,6 +620,7 @@ function renderOrders() {
 
   el.innerHTML = html;
   el.querySelector('#btn-new-order').onclick = openNewOrderForm;
+  el.querySelector('#order-search').addEventListener('input', () => renderOrders());
   el.querySelectorAll('.status-badge[data-badge-id]').forEach(badge => {
     badge.addEventListener('click', e => {
       const order = state.orders.find(o => String(o.id) === String(badge.dataset.badgeId));
