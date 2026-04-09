@@ -543,6 +543,7 @@ document.addEventListener('click', e => {
 function renderOrders() {
   const el = document.getElementById('tab-orders');
   const prevSearch = el.querySelector('.search-input')?.value || '';
+  const searchFocused = document.activeElement === el.querySelector('.search-input');
 
   const toolbar = `<div class="orders-toolbar">
     <input class="search-input" id="order-search" placeholder="🔍 Поиск..." value="${esc(prevSearch)}">
@@ -620,7 +621,9 @@ function renderOrders() {
 
   el.innerHTML = html;
   el.querySelector('#btn-new-order').onclick = openNewOrderForm;
-  el.querySelector('#order-search').addEventListener('input', () => renderOrders());
+  const si = el.querySelector('#order-search');
+  si.addEventListener('input', () => renderOrders());
+  if (searchFocused) { si.focus(); si.setSelectionRange(si.value.length, si.value.length); }
   el.querySelectorAll('.status-badge[data-badge-id]').forEach(badge => {
     badge.addEventListener('click', e => {
       const order = state.orders.find(o => String(o.id) === String(badge.dataset.badgeId));
