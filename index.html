@@ -541,7 +541,7 @@ function renderOrders() {
         html += `
           <div class="card" data-id="${o.id}">
             <div class="card-main">
-              <div class="card-id">#${o.id}${o.date ? ' · ' + o.date : ''}</div>
+              <div class="card-id">#${o.id}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}</div>
               <div class="card-title">${orderTitle}</div>
               <div class="card-subtitle">${clientName}</div>
             </div>
@@ -887,6 +887,20 @@ function openClientDetail(name) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+function deadlineLabel(deadline) {
+  if (!deadline) return '';
+  const parts = deadline.split('.');
+  if (parts.length !== 3) return deadline;
+  const d = new Date(parts[2], parts[1] - 1, parts[0]);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  let suffix = '';
+  if (diff === 0) suffix = ' · сегодня';
+  else if (diff > 0) suffix = ` · ${diff} дн.`;
+  else suffix = ` · -${-diff} дн.`;
+  return deadline + suffix;
+}
+
 function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
