@@ -483,6 +483,7 @@ async function onDragEnd(e) {
   });
 
   document.body.style.userSelect = '';
+  window.getSelection()?.removeAllRanges();
   dragState.ghost.remove();
   dragState.ghost = null;
   dragState.active = false;
@@ -560,6 +561,8 @@ function renderOrders() {
       dragStarted = false;
       startX = e.clientX;
       startY = e.clientY;
+      document.body.style.userSelect = 'none';
+      window.getSelection()?.removeAllRanges();
       const order = state.orders.find(o => String(o.id) === String(card.dataset.id));
 
       function onMove(ev) {
@@ -567,7 +570,6 @@ function renderOrders() {
           dragStarted = true;
           card.removeEventListener('pointermove', onMove);
           card.removeEventListener('pointerup', onUp);
-          document.body.style.userSelect = 'none';
           startDrag(ev, order, card);
         }
       }

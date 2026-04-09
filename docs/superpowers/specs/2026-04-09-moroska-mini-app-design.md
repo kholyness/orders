@@ -38,17 +38,17 @@ The frontend makes `fetch()` calls to the Apps Script web app URL. The Telegram 
 | 2 | Дата создания | dd.MM.yyyy |
 | 3 | Имя | Client name |
 | 4 | Изделие | Product name |
-| 5 | Артикул | Article number (new field) |
-| 6 | Детали | Details/notes |
-| 7 | Цена | Price in RSD |
-| 8 | Срок | Deadline date |
-| 9 | Статус | Очередь / В работе / Пауза / Готово / Отдано |
-| 10 | Фото | Google Drive folder URL |
-| 11 | Заметка | Additional note |
-| 12 | Модель | Model name |
-| 13 | Тип | Заказ / Наличие (new field) |
+| 5 | Детали | Details/notes |
+| 6 | Цена | Price in RSD |
+| 7 | Срок | Deadline date |
+| 8 | Статус | Очередь / В работе / Пауза / Готово / Отдано |
+| 9 | Фото | Google Drive folder URL |
+| 10 | Заметка | Additional note |
+| 11 | Модель | Model name |
+| 12 | Артикул | Article number (new column, appended to end) |
+| 13 | Тип | Заказ / Наличие (new column, appended to end) |
 
-> **Note:** Columns 5 (Артикул) and 13 (Тип) are new. Existing rows will have empty values — the app handles this gracefully.
+> **Note:** Columns 12 (Артикул) and 13 (Тип) are new — appended at the end to avoid breaking existing column indices in the Apps Script. Existing rows will have empty values — the app handles this gracefully.
 
 ---
 
