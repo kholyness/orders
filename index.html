@@ -370,7 +370,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwAWYhiT8961J4OtrCJSkjI-BYJc3Gvg92Se9vkwb-On_iH6mYQXzAbDKcDdJJwIhj_/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwMglCCO1eYNCHm7x_YtlV-DWnviOnQt94JQ2nIOHbHu-K_QKis8bVlOXlivD807EYB/exec';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['В работе','Очередь','Пауза','Готово'];
 
@@ -390,7 +390,8 @@ async function apiGet(action) {
 }
 
 async function apiPost(data) {
-  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data), redirect: 'follow' });
+  const body = JSON.stringify({ ...data, initData: tg.initData });
+  const res = await fetch(SCRIPT_URL, { method: 'POST', body, redirect: 'follow' });
   return res.json();
 }
 
