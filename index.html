@@ -524,6 +524,16 @@ function renderOrders() {
     grouped[s].push(o);
   });
 
+  function parseDeadline(d) {
+    if (!d) return Infinity;
+    const p = d.split('.');
+    if (p.length !== 3) return Infinity;
+    return new Date(p[2], p[1] - 1, p[0]).getTime();
+  }
+  STATUS_ORDER.forEach(s => {
+    grouped[s].sort((a, b) => parseDeadline(a.deadline) - parseDeadline(b.deadline));
+  });
+
   let html = newBtn;
   STATUS_ORDER.forEach(status => {
     const list = grouped[status];
@@ -898,7 +908,9 @@ function deadlineLabel(deadline) {
   if (diff === 0) suffix = ' · сегодня';
   else if (diff > 0) suffix = ` · ${diff} дн.`;
   else suffix = ` · -${-diff} дн.`;
-  return deadline + suffix;
+  const urgent = diff >= 0 && diff <= 7;
+  const label = deadline + suffix;
+  return urgent ? `<span style="color:#e53935">${label}</span>` : label;
 }
 
 function esc(str) {
