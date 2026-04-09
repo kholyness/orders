@@ -73,8 +73,8 @@
     .card {
       background: var(--bg-secondary);
       border-radius: 12px;
-      padding: 12px 14px;
-      margin-bottom: 10px;
+      padding: 8px 12px;
+      margin-bottom: 7px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -83,9 +83,9 @@
     }
     .card:active { opacity: 0.7; }
     .card-main { flex: 1; min-width: 0; }
-    .card-id { font-size: 12px; color: var(--hint); margin-bottom: 2px; }
-    .card-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .card-subtitle { font-size: 13px; color: var(--hint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-id { font-size: 11px; color: var(--hint); margin-bottom: 1px; }
+    .card-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-subtitle { font-size: 12px; color: var(--hint); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-chevron { color: var(--hint); font-size: 20px; margin-left: 8px; flex-shrink: 0; }
 
     /* ── Section headers ── */
@@ -103,20 +103,21 @@
     .btn-primary {
       display: block;
       width: 100%;
-      padding: 14px;
-      background: var(--accent);
-      color: var(--accent-text);
+      padding: 13px;
+      background: var(--tg-theme-button-color, #2481cc);
+      color: var(--tg-theme-button-text-color, #ffffff);
       border: none;
       border-radius: 12px;
-      font-size: 16px;
-      font-weight: 600;
+      font-size: 15px;
+      font-weight: 500;
       cursor: pointer;
       text-align: center;
       transition: opacity 0.15s;
       -webkit-tap-highlight-color: transparent;
+      opacity: 0.92;
     }
-    .btn-primary:active { opacity: 0.8; }
-    .btn-primary:disabled { opacity: 0.5; }
+    .btn-primary:active { opacity: 0.7; }
+    .btn-primary:disabled { opacity: 0.45; }
 
     .btn-secondary {
       display: block;
@@ -137,8 +138,8 @@
       display: block;
       width: 100%;
       padding: 13px;
-      background: #ff3b3022;
-      color: #ff3b30;
+      background: var(--bg-secondary);
+      color: var(--tg-theme-destructive-text-color, #ff3b30);
       border: none;
       border-radius: 12px;
       font-size: 15px;
@@ -529,7 +530,7 @@ function renderOrders() {
     if (!list.length && !dragState.active) return;
 
     html += `<div class="status-section" data-status="${status}">`;
-    html += `<div class="section-header">${status}</div>`;
+    html += `<div class="section-header">${status} <span style="color:var(--hint);font-weight:400;letter-spacing:0">(${list.length})</span></div>`;
 
     if (!list.length) {
       html += `<div class="drop-zone"></div>`;
