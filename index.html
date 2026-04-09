@@ -363,6 +363,12 @@
 </div>
 
 <script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function dmyToYmd(d) {
+  const p = d.split('.');
+  return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : '';
+}
+
 // ── Config ───────────────────────────────────────────────────────────────────
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwV7rrPwgIcErQNQgdpiGMzTciqToDKwVOv2qk-Fi2j1QQx-4rNaDz5p1xdmrht7Uau/exec';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
@@ -476,6 +482,7 @@ document.getElementById('status-popup').addEventListener('click', async e => {
   closeStatusPopup();
   if (order && newStatus !== order.status) {
     order.status = newStatus;
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     renderOrders();
     await apiPost({ action: 'updateStatus', id: order.id, status: newStatus });
   }
@@ -533,7 +540,7 @@ function renderOrders() {
       html += `
         <div class="card" data-id="${o.id}">
           <div class="card-main">
-            <div class="card-id">#${o.id}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}</div>
+            <div class="card-id">#${o.id}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}${o.note ? ' · <span style="color:var(--accent)">●</span>' : ''}</div>
             <div class="card-title">${orderTitle}</div>
             <div class="card-subtitle">${clientName}</div>
           </div>
@@ -616,7 +623,7 @@ function renderOrderDetail(order, editing) {
       </div>
       ${f('Детали', 'details', order.details)}
       ${f('Цена', 'price', order.price, 'number')}
-      ${f('Срок', 'deadline', order.deadline)}
+      <div class="field-group"><div class="field-label">Срок</div><input class="field-input" type="date" name="deadline" value="${esc(dmyToYmd(order.deadline || ''))}"></div>
       ${f('Заметка', 'note', order.note)}
       <button class="btn-primary" id="btn-save" style="margin-top:8px">Сохранить</button>
       <button class="btn-secondary" id="btn-cancel-edit">Отмена</button>
@@ -628,6 +635,7 @@ function renderOrderDetail(order, editing) {
   if (!editing) {
     const sel = document.getElementById('status-select');
     if (sel) sel.onchange = async () => {
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
       await apiPost({ action: 'updateStatus', id: order.id, status: sel.value });
       order.status = sel.value;
       await refreshOrders();
@@ -665,6 +673,10 @@ function renderOrderDetail(order, editing) {
       btn.disabled = true; btn.textContent = 'Сохраняем...';
       const data = { action: 'updateOrder', id: order.id };
       sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+      if (data.deadline) {
+        const p = data.deadline.split('-');
+        if (p.length === 3) data.deadline = p[2] + '.' + p[1] + '.' + p[0];
+      }
       await apiPost(data);
       Object.assign(order, data);
       await refreshOrders();
