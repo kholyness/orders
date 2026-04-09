@@ -284,40 +284,46 @@
     .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
     .sheet-subtitle { font-size: 13px; color: var(--hint); margin-top: -12px; margin-bottom: 16px; }
 
-    /* ── Drag to status ── */
-    .drop-zone {
-      border: 2px dashed #ccc;
-      border-radius: 12px;
-      height: 60px;
-      margin-bottom: 10px;
-      transition: border-color 0.15s, background 0.15s;
+    /* ── Status badge ── */
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 20px;
+      flex-shrink: 0;
+      margin-left: 10px;
+      white-space: nowrap;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
-    .drop-zone.drag-over {
-      border-color: var(--accent);
-      background: rgba(36,129,204,0.07);
-    }
-    .status-section.drag-over > .section-header {
-      color: var(--accent);
-    }
-    .card-placeholder {
-      border: 2px dashed #ccc;
-      border-radius: 12px;
-      margin-bottom: 10px;
-    }
-    #drag-ghost {
+    .sb-work  { background: rgba(45,138,78,0.15);  color: #2d8a4e; }
+    .sb-queue { background: rgba(58,102,196,0.13); color: #3a66c4; }
+    .sb-pause { background: rgba(230,126,34,0.15); color: #c47a1a; }
+    .sb-done  { background: rgba(123,31,162,0.12); color: #7b1fa2; }
+
+    /* ── Status popup ── */
+    #status-popup {
+      display: none;
       position: fixed;
-      pointer-events: none;
-      z-index: 1000;
-      opacity: 0.88;
-      transform: scale(1.0);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      z-index: 300;
+      background: var(--bg);
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.22);
+      padding: 6px;
+      min-width: 140px;
     }
-    #drag-ghost.lifted {
-      transform: scale(1.04) rotate(-1deg);
-      box-shadow: 0 16px 40px rgba(0,0,0,0.28);
+    .sp-item {
+      padding: 10px 14px;
+      font-size: 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
     }
-    .card:active { opacity: 1; }
+    .sp-item:active { opacity: 0.7; }
+    .sp-item.active { font-weight: 600; color: var(--accent); }
+
+    .card:active { opacity: 0.7; }
   </style>
 </head>
 <body>
@@ -343,6 +349,13 @@
   </button>
 </nav>
 
+<div id="status-popup">
+  <div class="sp-item" data-status="В работе">В работе</div>
+  <div class="sp-item" data-status="Очередь">Очередь</div>
+  <div class="sp-item" data-status="Пауза">Пауза</div>
+  <div class="sp-item" data-status="Готово">Готово</div>
+</div>
+
 <div id="overlay"></div>
 <div id="sheet">
   <div class="sheet-handle"></div>
@@ -363,14 +376,6 @@ if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 // ── State ────────────────────────────────────────────────────────────────────
 const state = { orders: [], archive: [], activeTab: 'orders' };
 
-const dragState = {
-  active: false,
-  orderId: null,
-  sourceStatus: null,
-  ghost: null,
-  offsetX: 0,
-  offsetY: 0,
-};
 
 // ── API ──────────────────────────────────────────────────────────────────────
 async function apiGet(action) {
@@ -429,80 +434,56 @@ function closeSheet() {
 
 overlay.addEventListener('click', closeSheet);
 
-// ── DRAG TO STATUS ───────────────────────────────────────────────────────────
-function startDrag(e, order, cardEl) {
-  const rect = cardEl.getBoundingClientRect();
-  dragState.orderId = order.id;
-  dragState.sourceStatus = order.status || 'Очередь';
-  dragState.offsetX = e.clientX - rect.left;
-  dragState.offsetY = e.clientY - rect.top;
-
-  const ghost = cardEl.cloneNode(true);
-  ghost.id = 'drag-ghost';
-  ghost.style.width = rect.width + 'px';
-  ghost.style.left = (e.clientX - dragState.offsetX) + 'px';
-  ghost.style.top  = (e.clientY - dragState.offsetY) + 'px';
-  document.body.appendChild(ghost);
-  dragState.ghost = ghost;
-  requestAnimationFrame(() => ghost.classList.add('lifted'));
-
-  const ph = document.createElement('div');
-  ph.className = 'card-placeholder';
-  ph.style.height = rect.height + 'px';
-  cardEl.replaceWith(ph);
-
-  dragState.active = true;
-  renderOrders();
-
-  document.addEventListener('pointermove', onDragMove);
-  document.addEventListener('pointerup', onDragEnd);
+// ── STATUS BADGE POPUP ───────────────────────────────────────────────────────
+function statusBadgeClass(status) {
+  return { 'В работе': 'sb-work', 'Очередь': 'sb-queue', 'Пауза': 'sb-pause', 'Готово': 'sb-done' }[status] || 'sb-queue';
 }
 
-function onDragMove(e) {
-  if (!dragState.active) return;
-  dragState.ghost.style.left = (e.clientX - dragState.offsetX) + 'px';
-  dragState.ghost.style.top  = (e.clientY - dragState.offsetY) + 'px';
+let _statusPopupOrderId = null;
 
-  document.querySelectorAll('.status-section').forEach(sec => {
-    const r = sec.getBoundingClientRect();
-    const over = e.clientX >= r.left && e.clientX <= r.right &&
-                 e.clientY >= r.top  && e.clientY <= r.bottom;
-    sec.classList.toggle('drag-over', over);
-    const dz = sec.querySelector('.drop-zone');
-    if (dz) dz.classList.toggle('drag-over', over);
+function openStatusPopup(e, order) {
+  e.stopPropagation();
+  const popup = document.getElementById('status-popup');
+  _statusPopupOrderId = order.id;
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  const popupW = 150;
+  let left = rect.right - popupW;
+  if (left < 8) left = 8;
+  popup.style.top  = (rect.bottom + 6) + 'px';
+  popup.style.left = left + 'px';
+
+  popup.querySelectorAll('.sp-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.status === (order.status || 'Очередь'));
   });
+  popup.style.display = 'block';
 }
 
-async function onDragEnd(e) {
-  if (!dragState.active) return;
-  document.removeEventListener('pointermove', onDragMove);
-  document.removeEventListener('pointerup', onDragEnd);
+function closeStatusPopup() {
+  document.getElementById('status-popup').style.display = 'none';
+  _statusPopupOrderId = null;
+}
 
-  let targetStatus = null;
-  document.querySelectorAll('.status-section.drag-over').forEach(sec => {
-    targetStatus = sec.dataset.status;
-  });
-
-  document.body.style.userSelect = '';
-  window.getSelection()?.removeAllRanges();
-  dragState.ghost.remove();
-  dragState.ghost = null;
-  dragState.active = false;
-
-  if (targetStatus && targetStatus !== dragState.sourceStatus) {
-    const order = state.orders.find(o => String(o.id) === String(dragState.orderId));
-    if (order) {
-      order.status = targetStatus;
-      renderOrders();
-      await apiPost({ action: 'updateStatus', id: order.id, status: targetStatus });
-    }
-  } else {
+document.getElementById('status-popup').addEventListener('click', async e => {
+  const item = e.target.closest('.sp-item');
+  if (!item || !_statusPopupOrderId) return;
+  const newStatus = item.dataset.status;
+  const order = state.orders.find(o => String(o.id) === String(_statusPopupOrderId));
+  closeStatusPopup();
+  if (order && newStatus !== order.status) {
+    order.status = newStatus;
     renderOrders();
+    await apiPost({ action: 'updateStatus', id: order.id, status: newStatus });
   }
+});
 
-  dragState.orderId = null;
-  dragState.sourceStatus = null;
-}
+document.addEventListener('click', e => {
+  const popup = document.getElementById('status-popup');
+  if (popup.style.display !== 'none' && !popup.contains(e.target) && !e.target.closest('.status-badge')) {
+    closeStatusPopup();
+  }
+});
+
 
 // ── ORDERS TAB ───────────────────────────────────────────────────────────────
 function renderOrders() {
@@ -537,62 +518,41 @@ function renderOrders() {
   let html = newBtn;
   STATUS_ORDER.forEach(status => {
     const list = grouped[status];
-    if (!list.length && !dragState.active) return;
+    if (!list.length) return;
 
     html += `<div class="status-section" data-status="${status}">`;
     html += `<div class="section-header">${status} <span style="color:var(--hint);font-weight:400;letter-spacing:0">(${list.length})</span></div>`;
 
-    if (!list.length) {
-      html += `<div class="drop-zone"></div>`;
-    } else {
-      list.forEach(o => {
-        const orderTitle = esc(o.item || o.model) || '—';
-        const clientName = esc((o.name || '').replace(/@\S+/g, '').trim()) || '—';
-        html += `
-          <div class="card" data-id="${o.id}">
-            <div class="card-main">
-              <div class="card-id">#${o.id}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}</div>
-              <div class="card-title">${orderTitle}</div>
-              <div class="card-subtitle">${clientName}</div>
-            </div>
-            <div class="card-chevron">›</div>
-          </div>`;
-      });
-    }
+    list.forEach(o => {
+      const orderTitle = esc(o.item || o.model) || '—';
+      const clientName = esc((o.name || '').replace(/@\S+/g, '').trim()) || '—';
+      html += `
+        <div class="card" data-id="${o.id}">
+          <div class="card-main">
+            <div class="card-id">#${o.id}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}</div>
+            <div class="card-title">${orderTitle}</div>
+            <div class="card-subtitle">${clientName}</div>
+          </div>
+          <div class="status-badge ${statusBadgeClass(o.status)}" data-badge-id="${o.id}">${esc(o.status || 'Очередь')}</div>
+        </div>`;
+    });
 
     html += `</div>`;
   });
 
   el.innerHTML = html;
   el.querySelector('#btn-new-order').onclick = openNewOrderForm;
+  el.querySelectorAll('.status-badge[data-badge-id]').forEach(badge => {
+    badge.addEventListener('click', e => {
+      const order = state.orders.find(o => String(o.id) === String(badge.dataset.badgeId));
+      if (order) openStatusPopup(e, order);
+    });
+  });
+
   el.querySelectorAll('.card[data-id]').forEach(card => {
-    let dragStarted = false;
-    let startX, startY;
-
-    card.addEventListener('pointerdown', e => {
-      dragStarted = false;
-      startX = e.clientX;
-      startY = e.clientY;
-      document.body.style.userSelect = 'none';
-      window.getSelection()?.removeAllRanges();
-      const order = state.orders.find(o => String(o.id) === String(card.dataset.id));
-
-      function onMove(ev) {
-        if (!dragStarted && (Math.abs(ev.clientX - startX) > 10 || Math.abs(ev.clientY - startY) > 10)) {
-          dragStarted = true;
-          card.removeEventListener('pointermove', onMove);
-          card.removeEventListener('pointerup', onUp);
-          startDrag(ev, order, card);
-        }
-      }
-      function onUp() {
-        card.removeEventListener('pointermove', onMove);
-        card.removeEventListener('pointerup', onUp);
-        if (!dragStarted) openOrderDetail(card.dataset.id, state.orders);
-      }
-
-      card.addEventListener('pointermove', onMove);
-      card.addEventListener('pointerup', onUp);
+    card.addEventListener('click', e => {
+      if (e.target.closest('.status-badge')) return;
+      openOrderDetail(card.dataset.id, state.orders);
     });
   });
 }
