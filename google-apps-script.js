@@ -408,6 +408,6 @@ function sendMonthlyStats() {
 }
 
 function setWebhook() {
-  const url = 'https://script.google.com/macros/s/AKfycbxMpD14ZU_6c2VrllFKWMB-52SIu1ClWVo79XhiT_ebXlx9In6OaxfRjDJomJuCGPvv/exec';
+  const url = 'https://script.google.com/macros/s/AKfycbwV7rrPwgIcErQNQgdpiGMzTciqToDKwVOv2qk-Fi2j1QQx-4rNaDz5p1xdmrht7Uau/exec';
   UrlFetchApp.fetch('https://api.telegram.org/bot' + TOKEN + '/setWebhook?url=' + url);
 }
