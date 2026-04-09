@@ -282,6 +282,36 @@
     .loading { text-align: center; padding: 48px; color: var(--hint); font-size: 15px; }
     .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
     .sheet-subtitle { font-size: 13px; color: var(--hint); margin-top: -12px; margin-bottom: 16px; }
+
+    /* ── Drag to status ── */
+    .drop-zone {
+      border: 2px dashed #ccc;
+      border-radius: 12px;
+      height: 60px;
+      margin-bottom: 10px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(36,129,204,0.07);
+    }
+    .status-section.drag-over > .section-header {
+      color: var(--accent);
+    }
+    .card-placeholder {
+      border: 2px dashed #ccc;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+    #drag-ghost {
+      position: fixed;
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.88;
+      transform: scale(1.03);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+    .card:active { opacity: 1; }
   </style>
 </head>
 <body>
@@ -326,6 +356,15 @@ if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 
 // ── State ────────────────────────────────────────────────────────────────────
 const state = { orders: [], archive: [], activeTab: 'orders' };
+
+const dragState = {
+  active: false,
+  orderId: null,
+  sourceStatus: null,
+  ghost: null,
+  offsetX: 0,
+  offsetY: 0,
+};
 
 // ── API ──────────────────────────────────────────────────────────────────────
 async function apiGet(action) {
@@ -384,6 +423,78 @@ function closeSheet() {
 
 overlay.addEventListener('click', closeSheet);
 
+// ── DRAG TO STATUS ───────────────────────────────────────────────────────────
+function startDrag(e, order, cardEl) {
+  const rect = cardEl.getBoundingClientRect();
+  dragState.orderId = order.id;
+  dragState.sourceStatus = order.status || 'Очередь';
+  dragState.offsetX = e.clientX - rect.left;
+  dragState.offsetY = e.clientY - rect.top;
+
+  const ghost = cardEl.cloneNode(true);
+  ghost.id = 'drag-ghost';
+  ghost.style.width = rect.width + 'px';
+  ghost.style.left = (e.clientX - dragState.offsetX) + 'px';
+  ghost.style.top  = (e.clientY - dragState.offsetY) + 'px';
+  document.body.appendChild(ghost);
+  dragState.ghost = ghost;
+
+  const ph = document.createElement('div');
+  ph.className = 'card-placeholder';
+  ph.style.height = rect.height + 'px';
+  cardEl.replaceWith(ph);
+
+  dragState.active = true;
+  renderOrders();
+
+  document.addEventListener('pointermove', onDragMove);
+  document.addEventListener('pointerup', onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!dragState.active) return;
+  dragState.ghost.style.left = (e.clientX - dragState.offsetX) + 'px';
+  dragState.ghost.style.top  = (e.clientY - dragState.offsetY) + 'px';
+
+  document.querySelectorAll('.status-section').forEach(sec => {
+    const r = sec.getBoundingClientRect();
+    const over = e.clientX >= r.left && e.clientX <= r.right &&
+                 e.clientY >= r.top  && e.clientY <= r.bottom;
+    sec.classList.toggle('drag-over', over);
+    const dz = sec.querySelector('.drop-zone');
+    if (dz) dz.classList.toggle('drag-over', over);
+  });
+}
+
+async function onDragEnd(e) {
+  if (!dragState.active) return;
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', onDragEnd);
+
+  let targetStatus = null;
+  document.querySelectorAll('.status-section.drag-over').forEach(sec => {
+    targetStatus = sec.dataset.status;
+  });
+
+  dragState.ghost.remove();
+  dragState.ghost = null;
+  dragState.active = false;
+
+  if (targetStatus && targetStatus !== dragState.sourceStatus) {
+    const order = state.orders.find(o => String(o.id) === String(dragState.orderId));
+    if (order) {
+      order.status = targetStatus;
+      renderOrders();
+      await apiPost({ action: 'updateStatus', id: order.id, status: targetStatus });
+    }
+  } else {
+    renderOrders();
+  }
+
+  dragState.orderId = null;
+  dragState.sourceStatus = null;
+}
+
 // ── ORDERS TAB ───────────────────────────────────────────────────────────────
 function renderOrders() {
   const el = document.getElementById('tab-orders');
@@ -407,26 +518,60 @@ function renderOrders() {
   let html = newBtn;
   STATUS_ORDER.forEach(status => {
     const list = grouped[status];
-    if (!list.length) return;
+    if (!list.length && !dragState.active) return;
+
+    html += `<div class="status-section" data-status="${status}">`;
     html += `<div class="section-header">${status}</div>`;
-    list.forEach(o => {
-      const sub = [o.model || o.item, o.article].filter(Boolean).join(' · ');
-      html += `
-        <div class="card" data-id="${o.id}">
-          <div class="card-main">
-            <div class="card-id">#${o.id}${o.date ? ' · ' + o.date : ''}</div>
-            <div class="card-title">${esc(o.name) || '—'}</div>
-            <div class="card-subtitle">${esc(sub) || '—'}</div>
-          </div>
-          <div class="card-chevron">›</div>
-        </div>`;
-    });
+
+    if (!list.length) {
+      html += `<div class="drop-zone"></div>`;
+    } else {
+      list.forEach(o => {
+        const sub = [o.model || o.item, o.article].filter(Boolean).join(' · ');
+        html += `
+          <div class="card" data-id="${o.id}">
+            <div class="card-main">
+              <div class="card-id">#${o.id}${o.date ? ' · ' + o.date : ''}</div>
+              <div class="card-title">${esc(o.name) || '—'}</div>
+              <div class="card-subtitle">${esc(sub) || '—'}</div>
+            </div>
+            <div class="card-chevron">›</div>
+          </div>`;
+      });
+    }
+
+    html += `</div>`;
   });
 
   el.innerHTML = html;
   el.querySelector('#btn-new-order').onclick = openNewOrderForm;
   el.querySelectorAll('.card[data-id]').forEach(card => {
-    card.onclick = () => openOrderDetail(card.dataset.id, state.orders);
+    let dragStarted = false;
+    let startX, startY;
+
+    card.addEventListener('pointerdown', e => {
+      dragStarted = false;
+      startX = e.clientX;
+      startY = e.clientY;
+      const order = state.orders.find(o => String(o.id) === String(card.dataset.id));
+
+      function onMove(ev) {
+        if (!dragStarted && (Math.abs(ev.clientX - startX) > 10 || Math.abs(ev.clientY - startY) > 10)) {
+          dragStarted = true;
+          card.removeEventListener('pointermove', onMove);
+          card.removeEventListener('pointerup', onUp);
+          startDrag(ev, order, card);
+        }
+      }
+      function onUp() {
+        card.removeEventListener('pointermove', onMove);
+        card.removeEventListener('pointerup', onUp);
+        if (!dragStarted) openOrderDetail(card.dataset.id, state.orders);
+      }
+
+      card.addEventListener('pointermove', onMove);
+      card.addEventListener('pointerup', onUp);
+    });
   });
 }
 
