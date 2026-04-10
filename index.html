@@ -925,12 +925,16 @@ function openNewPurchaseForm() {
     try {
       const data = { action: 'createPurchase', status: 'Купить' };
       sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
-      await apiPost(data);
+      const res = await apiPost(data);
+      console.log('createPurchase response:', JSON.stringify(res));
+      if (res.error) { alert('Ошибка: ' + res.error); btn.disabled = false; btn.textContent = 'Добавить'; return; }
       await refreshPurchases();
       closeSheet();
       renderBuy();
     } catch (e) {
+      console.error('createPurchase catch:', e);
       btn.disabled = false; btn.textContent = 'Добавить';
+      alert('Ошибка при добавлении: ' + e.message);
     }
   };
 }
