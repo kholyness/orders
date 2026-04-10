@@ -71,6 +71,16 @@
     .tab-btn.active { color: var(--accent); }
     .tab-btn .tab-icon { font-size: 22px; line-height: 1; }
 
+    #app-version {
+      position: absolute;
+      bottom: calc(var(--tab-height) + env(safe-area-inset-bottom) + 2px);
+      right: 8px;
+      font-size: 9px;
+      color: var(--hint);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
     /* ── Cards ── */
     .card {
       background: var(--bg-secondary);
@@ -403,6 +413,7 @@
 </div>
 
 <nav id="tab-bar">
+  <span id="app-version"></span>
   <button class="tab-btn active" data-tab="orders">
     <span class="tab-icon">📋</span>
     <span>Заказы</span>
@@ -443,6 +454,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
+const APP_VERSION = '1.0.0';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxOzs8dMQdwkNIjkSAP1tlCEyLrw0ljTJsQPVooZmOfqw9UsYS4oHgThx_qKlWmRzCO/exec';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['Получен','В работе','Очередь','Пауза','Готово'];
@@ -451,6 +463,7 @@ const STATUS_ORDER = ['Получен','В работе','Очередь','Па�
 const tg = window.Telegram.WebApp;
 tg.expand();
 if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── State ────────────────────────────────────────────────────────────────────
 const state = { orders: [], archive: [], purchases: [], activeTab: 'orders' };

@@ -2,6 +2,7 @@ const TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN';
 const SHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
 const PARENT_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID';
 const MY_CHAT_ID = 'YOUR_TELEGRAM_CHAT_ID';
+const ALLOWED_CHAT_IDS = [MY_CHAT_ID]; // add more IDs here: ['123456', '789012']
 
 // ─── MINI APP: READ ENDPOINTS ───────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ function validateInitData(initData) {
   // Check that the request comes from the owner
   try {
     const user = JSON.parse(params.get('user') || '{}');
-    if (String(user.id) !== String(MY_CHAT_ID)) return false;
+    if (!ALLOWED_CHAT_IDS.map(String).includes(String(user.id))) return false;
   } catch (e) {
     return false;
   }

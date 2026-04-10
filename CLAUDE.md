@@ -20,6 +20,12 @@ There is no package manager, no build system, and no tests. Development is purel
 
 After redeploying the Apps Script, update `SCRIPT_URL` in `index.html` if the URL changes.
 
+## Versioning
+
+`index.html` has an `APP_VERSION` constant (near the top of the `<script>` section) displayed as a small label above the tab bar (bottom-right corner). **Bump this version string every time you deploy a change to the Mini App** so it's easy to confirm which version is actually running in the Telegram WebView.
+
+Use simple semver: `1.0.0` → `1.0.1` for patches, `1.1.0` for new features. No tooling needed — just edit the string manually.
+
 ## Architecture
 
 ### Data Layer (Google Sheets)
@@ -47,7 +53,7 @@ After redeploying the Apps Script, update `SCRIPT_URL` in `index.html` if the UR
 ### Authentication (Mini App)
 All Mini App write requests go through `validateInitData(data.initData)`:
 - Verifies the Telegram `initData` HMAC-SHA256 signature using the bot TOKEN
-- Additionally checks that the user ID in `initData` matches `MY_CHAT_ID` (owner-only access)
+- Additionally checks that the user ID in `initData` is in `ALLOWED_CHAT_IDS` array (whitelist; by default contains only `MY_CHAT_ID`)
 - Returns `{ error: 'Unauthorized' }` on failure
 
 ### Frontend State
@@ -75,7 +81,8 @@ const STATUS_ORDER = ['В работе','Очередь','Пауза','Гото�
 const TOKEN = '...';            // Telegram Bot token
 const SHEET_ID = ...;           // Google Sheets ID (auto-detected via getActiveSpreadsheet)
 const PARENT_FOLDER_ID = '...'; // Google Drive folder for order subfolders
-const MY_CHAT_ID = '...';       // Owner's chat ID — used for auth and scheduled reports
+const MY_CHAT_ID = '...';           // Owner's chat ID — used for auth and scheduled reports
+const ALLOWED_CHAT_IDS = [MY_CHAT_ID]; // Whitelist for Mini App access; add more IDs as needed
 ```
 
 ### Bot Report Functions
