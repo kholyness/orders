@@ -359,10 +359,11 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
-    .sb-work  { background: rgba(45,138,78,0.15);  color: #2d8a4e; }
-    .sb-queue { background: rgba(58,102,196,0.13); color: #3a66c4; }
-    .sb-pause { background: rgba(230,126,34,0.15); color: #c47a1a; }
-    .sb-done  { background: rgba(123,31,162,0.12); color: #7b1fa2; }
+    .sb-work     { background: rgba(45,138,78,0.15);  color: #2d8a4e; }
+    .sb-queue    { background: rgba(58,102,196,0.13); color: #3a66c4; }
+    .sb-pause    { background: rgba(230,126,34,0.15); color: #c47a1a; }
+    .sb-done     { background: rgba(123,31,162,0.12); color: #7b1fa2; }
+    .sb-received { background: rgba(0,0,0,0.07);      color: var(--hint); }
 
     /* ── Status popup ── */
     #status-popup {
@@ -421,6 +422,7 @@
 </nav>
 
 <div id="status-popup">
+  <div class="sp-item" data-status="Получен">Получен</div>
   <div class="sp-item" data-status="В работе">В работе</div>
   <div class="sp-item" data-status="Очередь">Очередь</div>
   <div class="sp-item" data-status="Пауза">Пауза</div>
@@ -443,7 +445,7 @@ function dmyToYmd(d) {
 // ── Config ───────────────────────────────────────────────────────────────────
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxknNMX-2ANIBL249WNtr-TyAaZlGV2Mh1o5StY_kg6Vd_yfJfT_9ueRuqjAovaY9Jh/exec';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
-const STATUS_ORDER = ['В работе','Очередь','Пауза','Готово'];
+const STATUS_ORDER = ['Получен','В работе','Очередь','Пауза','Готово'];
 
 // ── Telegram WebApp ──────────────────────────────────────────────────────────
 const tg = window.Telegram.WebApp;
@@ -522,7 +524,7 @@ overlay.addEventListener('click', closeSheet);
 
 // ── STATUS BADGE POPUP ───────────────────────────────────────────────────────
 function statusBadgeClass(status) {
-  return { 'В работе': 'sb-work', 'Очередь': 'sb-queue', 'Пауза': 'sb-pause', 'Готово': 'sb-done' }[status] || 'sb-queue';
+  return { 'Получен': 'sb-received', 'В работе': 'sb-work', 'Очередь': 'sb-queue', 'Пауза': 'sb-pause', 'Готово': 'sb-done' }[status] || 'sb-queue';
 }
 
 let _statusPopupOrderId = null;
@@ -653,7 +655,7 @@ function renderOrders() {
       html += `
         <div class="card" data-id="${o.id}">
           <div class="card-main">
-            <div class="card-id">#${o.id}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}${o.note ? ' · <span style="color:var(--accent)">●</span>' : ''}</div>
+            <div class="card-id">#${o.rowNum}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}${o.note ? ' · <span style="color:var(--accent)">●</span>' : ''}</div>
             <div class="card-title">${orderTitle}</div>
             <div class="card-subtitle">${clientName}</div>
           </div>
