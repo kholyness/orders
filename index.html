@@ -464,8 +464,8 @@ async function apiGet(action) {
 
 async function apiPost(data) {
   const body = JSON.stringify({ ...data, initData: tg.initData });
-  const encoded = btoa(unescape(encodeURIComponent(body)));
-  const res = await fetch(SCRIPT_URL + '?write=' + encodeURIComponent(encoded) + '&t=' + Date.now(), { redirect: 'follow' });
+  const encoded = btoa(unescape(encodeURIComponent(body))).replace(/\+/g, '-').replace(/\//g, '_');
+  const res = await fetch(SCRIPT_URL + '?write=' + encoded + '&t=' + Date.now(), { redirect: 'follow' });
   return res.json();
 }
 
