@@ -454,7 +454,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.0.5';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby0BCjAVEADLJKd2N0hsdLxS0Ci3CYZD8F1u7wI2tfhRa67B7SW0kSGuWnX-zFzCy0Q/exec';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['Получен','В работе','Очередь','Пауза','Готово'];
@@ -470,13 +470,24 @@ const state = { orders: [], archive: [], purchases: [], activeTab: 'orders' };
 
 
 // ── API ──────────────────────────────────────────────────────────────────────
+let sessionToken = null;
+
+async function fetchSessionToken() {
+  const res = await fetch(
+    SCRIPT_URL + '?action=auth&initData=' + encodeURIComponent(tg.initData) + '&t=' + Date.now(),
+    { redirect: 'follow' }
+  );
+  const data = await res.json();
+  if (data.token) sessionToken = data.token;
+}
+
 async function apiGet(action) {
   const res = await fetch(SCRIPT_URL + '?action=' + action + '&t=' + Date.now(), { redirect: 'follow' });
   return res.json();
 }
 
 async function apiPost(data) {
-  const allData = { ...data, initData: tg.initData };
+  const allData = { ...data, token: sessionToken };
   const params = Object.entries(allData)
     .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v == null ? '' : v))
     .join('&');
@@ -1154,7 +1165,7 @@ function declOrders(n) {
 async function init() {
   document.getElementById('tab-orders').innerHTML = '<div class="loading">Загрузка...</div>';
   try {
-    await loadData();
+    await Promise.all([loadData(), fetchSessionToken()]);
   } catch (e) {
     document.getElementById('tab-orders').innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
     return;

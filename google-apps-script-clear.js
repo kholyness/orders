@@ -28,6 +28,9 @@ function doGet(e) {
   } else if (action === 'getPurchases') {
     const purchaseSheet = ss.getSheetByName('Purchase');
     result = { purchases: purchaseSheetToObjects(purchaseSheet) };
+  } else if (action === 'auth') {
+    if (!validateInitData(e.parameter.initData)) return jsonOut({ error: 'Unauthorized' });
+    result = { token: generateSessionToken() };
   } else {
     result = { error: 'Unknown action: ' + action };
   }
@@ -126,6 +129,31 @@ function buildStats(mainSheet, archiveSheet) {
   };
 }
 
+// ─── SESSION TOKENS ─────────────────────────────────────────────────────────
+
+function generateSessionToken() {
+  // Time-based token: valid for current and previous hour, no storage needed
+  const window = Math.floor(Date.now() / 3600000);
+  const raw = Utilities.computeHmacSha256Signature(
+    Utilities.newBlob(String(window)).getBytes(),
+    Utilities.newBlob(TOKEN).getBytes()
+  );
+  return Utilities.base64Encode(raw).replace(/[+/=]/g, '').slice(0, 20);
+}
+
+function validateToken(token) {
+  if (!token) return false;
+  const window = Math.floor(Date.now() / 3600000);
+  const cur = generateSessionToken();
+  // Also accept previous hour's token (handles edge case at hour boundary)
+  const prevRaw = Utilities.computeHmacSha256Signature(
+    Utilities.newBlob(String(window - 1)).getBytes(),
+    Utilities.newBlob(TOKEN).getBytes()
+  );
+  const prev = Utilities.base64Encode(prevRaw).replace(/[+/=]/g, '').slice(0, 20);
+  return token === cur || token === prev;
+}
+
 // ─── MINI APP AUTH ──────────────────────────────────────────────────────────
 
 function validateInitData(initData) {
@@ -171,7 +199,7 @@ function validateInitData(initData) {
 // ─── MINI APP: WRITE ENDPOINTS ──────────────────────────────────────────────
 
 function handleMiniAppPost(data) {
-  if (!validateInitData(data.initData)) {
+  if (!validateToken(data.token)) {
     return jsonOut({ error: 'Unauthorized' });
   }
   const ss = SpreadsheetApp.openById(SHEET_ID);
