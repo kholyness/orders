@@ -7,9 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Moroska Orders is a Telegram Mini App for managing craft orders. It consists of two parts:
 
 1. **`index.html`** — the frontend Mini App (single HTML file, vanilla JS, no build step)
-2. **`google-apps-script.js`** — the backend deployed as a Google Apps Script Web App
+2. **`google-apps-script.js`** — the backend deployed as a Google Apps Script Web App (contains real tokens; not committed)
+3. **`google-apps-script-clear.js`** — public version of the backend with placeholder tokens (`YOUR_TELEGRAM_BOT_TOKEN`, etc.), safe to commit
 
-There is no package manager, no build system, and no tests. Development is purely editing these two files.
+There is no package manager, no build system, and no tests. Development is purely editing these files.
 
 ## Deployment
 
@@ -24,16 +25,21 @@ After redeploying the Apps Script, update `SCRIPT_URL` in `index.html` if the UR
 ### Data Layer (Google Sheets)
 - **`Actual` sheet** — active orders (17 columns: №, ID заказа, Дата создания, Имя, Username, ID клиента, Изделие, Модель, Артикул, Тип, Детали, Цена, Срок, Статус, Фото, Заметка, Комментарий)
 - **`Archive` sheet** — completed orders (same schema, Статус = 'Отдано')
+- **`Purchase` sheet** — purchase list (8 columns: date, item, quantity, price, orderId, orderName, status, note); created automatically on first use; status values: `Купить` / `Куплено`
 - **ID заказа** format: `DDMM-XXX` where DDMM = creation date (day+month), XXX = last 3 digits of client Telegram ID (or row № padded to 3 if no client ID)
 - **№** — sequential row counter (separate from ID заказа)
 - **Заметка** — master's internal notes; **Комментарий** — client's comment from the shop bot
 - Each order gets a Google Drive folder created automatically on creation; `photo` column stores the folder URL
 
 ### Backend API (Google Apps Script)
-- `doGet(e)` — handles read requests: `getOrders`, `getArchive`, `getStats`
+- `doGet(e)` — handles both read requests and write actions (sent as GET params)
+  - Read: `getOrders`, `getArchive`, `getStats`, `getPurchases`
+  - Write (routed to `handleMiniAppPost`): `createOrder`, `updateOrder`, `updateStatus`, `archiveOrder`, `createPurchase`, `updatePurchase`, `updatePurchaseStatus`
 - `doPost(e)` — dual-purpose: routes to `handleMiniAppPost` when `data.action` is present, otherwise handles Telegram Bot webhook
-- Mini App write actions: `createOrder`, `updateOrder`, `updateStatus`, `archiveOrder`
-  - `updateStatus` with `status = 'Отдано'` automatically calls `moveToArchive`
+- Mini App write actions:
+  - Orders: `createOrder`, `updateOrder`, `updateStatus`, `archiveOrder`
+    - `updateStatus` with `status = 'Отдано'` automatically calls `moveToArchive`
+  - Purchases: `createPurchase`, `updatePurchase`, `deletePurchase`, `togglePurchaseStatus`
 - Telegram bot commands: `/new`, `/work`, `/buy`, `/money`, `/week`, `/models [month]`
 - Telegram status updates: `в работе 42`, `пауза 42`, `готово 42`, `отдано 42` (moves to archive)
 - Telegram photo handling: sending a photo with a plain order number saves it to that order's Drive folder
@@ -82,4 +88,5 @@ const MY_CHAT_ID = '...';       // Owner's chat ID — used for auth and schedul
 ## Scheduled Triggers (Apps Script)
 - `sendMondayReport()` — weekly work summary (configure in Apps Script triggers)
 - `sendMonthlyStats()` — monthly income summary (configure in Apps Script triggers)
+- `sendDeadlineReminder()` — sends a message if any order has a deadline exactly 7 days from today (configure in Apps Script triggers)
 - `setWebhook()` — run once to register Telegram webhook URL
