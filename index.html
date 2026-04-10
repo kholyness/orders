@@ -454,7 +454,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby0BCjAVEADLJKd2N0hsdLxS0Ci3CYZD8F1u7wI2tfhRa67B7SW0kSGuWnX-zFzCy0Q/exec';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['Получен','В работе','Очередь','Пауза','Готово'];
@@ -477,15 +477,10 @@ async function apiGet(action) {
 
 async function apiPost(data) {
   const allData = { ...data, initData: tg.initData };
-  const body = Object.entries(allData)
+  const params = Object.entries(allData)
     .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v == null ? '' : v))
     .join('&');
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-    redirect: 'follow',
-  });
+  const res = await fetch(SCRIPT_URL + '?' + params + '&t=' + Date.now(), { redirect: 'follow' });
   return res.json();
 }
 
@@ -867,8 +862,7 @@ function renderBuy() {
   const toBuy   = state.purchases.filter(p => p.status !== 'Куплено');
   const bought  = state.purchases.filter(p => p.status === 'Куплено');
 
-  let html = `<button class="btn-new-order" id="btn-new-purchase" style="width:100%;border-radius:10px;height:40px;margin-bottom:16px;font-size:15px;font-weight:500">＋ Добавить</button>
-<button onclick="debugTestPost()" style="width:100%;border-radius:10px;height:36px;margin-bottom:12px;font-size:13px;background:#f0a;color:#fff;border:none">🐛 DEBUG TEST POST</button>`;
+  let html = `<button class="btn-new-order" id="btn-new-purchase" style="width:100%;border-radius:10px;height:40px;margin-bottom:16px;font-size:15px;font-weight:500">＋ Добавить</button>`;
 
   if (!state.purchases.length) {
     html += '<div class="empty">Список покупок пуст</div>';
@@ -1154,46 +1148,6 @@ function declOrders(n) {
   if (n % 10 === 1 && n % 100 !== 11) return 'заказ';
   if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return 'заказа';
   return 'заказов';
-}
-
-// ── DEBUG ─────────────────────────────────────────────────────────────────────
-async function debugTestPost() {
-  const lines = [];
-  lines.push('=== DEBUG POST TEST v2 ===');
-  lines.push('initData length: ' + (tg.initData || '').length);
-
-  // Step 1: GET baseline
-  lines.push('\n--- Step 1: GET (baseline) ---');
-  try {
-    const r = await fetch(SCRIPT_URL + '?action=getOrders&t=' + Date.now(), { redirect: 'follow' });
-    lines.push('ok: ' + r.ok + ' status: ' + r.status);
-  } catch (e) { lines.push('ERROR: ' + e.message); }
-
-  // Step 2: GET with initData in URL
-  lines.push('\n--- Step 2: GET + initData in URL ---');
-  try {
-    const p = 'action=getOrders&initData=' + encodeURIComponent(tg.initData || '') + '&t=' + Date.now();
-    lines.push('URL len: ' + (SCRIPT_URL + '?' + p).length);
-    const r = await fetch(SCRIPT_URL + '?' + p, { redirect: 'follow' });
-    lines.push('ok: ' + r.ok + ' status: ' + r.status);
-  } catch (e) { lines.push('ERROR: ' + e.message); }
-
-  // Step 3: POST text/plain with JSON body
-  lines.push('\n--- Step 3: POST text/plain + JSON ---');
-  try {
-    const payload = JSON.stringify({ action: 'createPurchase', item: 'TEST_JSON', quantity: '1', price: '0', status: 'Купить', initData: tg.initData || '' });
-    lines.push('body len: ' + payload.length);
-    const r = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: payload,
-      redirect: 'follow',
-    });
-    lines.push('ok: ' + r.ok + ' status: ' + r.status);
-    lines.push('resp: ' + (await r.text()).slice(0, 150));
-  } catch (e) { lines.push('ERROR: ' + e.message); }
-
-  alert(lines.join('\n'));
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

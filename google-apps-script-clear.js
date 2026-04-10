@@ -276,25 +276,10 @@ function updateOrderFromApp(data, sheet) {
 // ─── MAIN ENTRY POINT ───────────────────────────────────────────────────────
 
 function doPost(e) {
-  const contentType = (e.postData && e.postData.type) || '';
-
-  // Mini App sends application/x-www-form-urlencoded POST
-  if (contentType.indexOf('application/x-www-form-urlencoded') !== -1) {
-    const params = {};
-    (e.postData.contents || '').split('&').forEach(function(pair) {
-      const idx = pair.indexOf('=');
-      if (idx === -1) return;
-      const k = decodeURIComponent(pair.slice(0, idx).replace(/\+/g, ' '));
-      const v = decodeURIComponent(pair.slice(idx + 1).replace(/\+/g, ' '));
-      params[k] = v;
-    });
-    if (params.action) return handleMiniAppPost(params);
-  }
-
-  // Telegram webhook sends JSON
   let data;
   try { data = JSON.parse(e.postData.contents); } catch (err) { return; }
 
+  // Mini App requests have an `action` field
   if (data.action) {
     return handleMiniAppPost(data);
   }
