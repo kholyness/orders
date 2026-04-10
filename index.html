@@ -441,7 +441,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxGTd0rSksLnpJ8cXi9rzahPRhuGhJGC3_uriD8MWrJPO64A3MwasfLGqZkbvPHqggP/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxknNMX-2ANIBL249WNtr-TyAaZlGV2Mh1o5StY_kg6Vd_yfJfT_9ueRuqjAovaY9Jh/exec';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['В работе','Очередь','Пауза','Готово'];
 
@@ -648,8 +648,8 @@ function renderOrders() {
 
     list.forEach(o => {
       const orderTitle = esc(o.item || o.model) || '—';
-      const tgUsername = (o.name || '').match(/@(\S+)/)?.[1] || '';
-      const clientName = esc((o.name || '').replace(/@\S+/g, '').trim()) || '—';
+      const tgUsername = o.username || '';
+      const clientName = esc(o.name || '') || '—';
       html += `
         <div class="card" data-id="${o.id}">
           <div class="card-main">
@@ -711,6 +711,7 @@ function renderOrderDetail(order) {
   const html = `
     <div class="sheet-title">#${order.id} ${esc(order.name) || ''}</div>
     ${f('Имя', 'name', order.name)}
+    ${f('Username', 'username', order.username)}
     ${f('Изделие', 'item', order.item)}
     ${f('Артикул', 'article', order.article)}
     <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model">${modelOptions}</select></div>
@@ -725,6 +726,7 @@ function renderOrderDetail(order) {
     ${f('Детали', 'details', order.details)}
     ${f('Цена', 'price', order.price, 'number')}
     <div class="field-group"><div class="field-label">Срок</div><input class="field-input" type="date" name="deadline" value="${esc(dmyToYmd(order.deadline || ''))}"></div>
+    ${f('Комментарий клиента', 'comment', order.comment)}
     ${f('Заметка', 'note', order.note)}
     <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
     ${order.photo ? `<div style="margin-bottom:16px"><a class="detail-link" href="${order.photo}" target="_blank">📁 Открыть папку Drive</a></div>` : ''}
@@ -780,6 +782,7 @@ function openNewOrderForm() {
   openSheet(`
     <div class="sheet-title">Новый заказ</div>
     <div class="field-group"><div class="field-label">Имя</div><input class="field-input" name="name" placeholder="Имя клиента"></div>
+    <div class="field-group"><div class="field-label">Username</div><input class="field-input" name="username" placeholder="@username (необязательно)"></div>
     <div class="field-group"><div class="field-label">Изделие</div><input class="field-input" name="item" placeholder="Название изделия"></div>
     <div class="field-group"><div class="field-label">Артикул</div><input class="field-input" name="article" placeholder="Необязательно"></div>
     <div class="field-group">
@@ -1062,8 +1065,9 @@ function renderClients(filter = '') {
 
 function openClientDetail(name) {
   const all = state.orders.concat(state.archive);
+  const toMs = d => { const p = (d||'').split('.'); return p.length===3 ? new Date(+p[2],+p[1]-1,+p[0]).getTime() : 0; };
   const orders = all.filter(o => (o.name || '').trim() === name)
-    .sort((a, b) => parseInt(b.id) - parseInt(a.id));
+    .sort((a, b) => toMs(b.date) - toMs(a.date));
   const totalSpent = state.archive
     .filter(o => (o.name || '').trim() === name)
     .reduce((sum, o) => sum + (parseFloat(o.price) || 0), 0);
