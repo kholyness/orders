@@ -867,7 +867,8 @@ function renderBuy() {
   const toBuy   = state.purchases.filter(p => p.status !== 'Куплено');
   const bought  = state.purchases.filter(p => p.status === 'Куплено');
 
-  let html = `<button class="btn-new-order" id="btn-new-purchase" style="width:100%;border-radius:10px;height:40px;margin-bottom:16px;font-size:15px;font-weight:500">＋ Добавить</button>`;
+  let html = `<button class="btn-new-order" id="btn-new-purchase" style="width:100%;border-radius:10px;height:40px;margin-bottom:16px;font-size:15px;font-weight:500">＋ Добавить</button>
+<button onclick="debugTestPost()" style="width:100%;border-radius:10px;height:36px;margin-bottom:12px;font-size:13px;background:#f0a;color:#fff;border:none">🐛 DEBUG TEST POST</button>`;
 
   if (!state.purchases.length) {
     html += '<div class="empty">Список покупок пуст</div>';
@@ -1153,6 +1154,46 @@ function declOrders(n) {
   if (n % 10 === 1 && n % 100 !== 11) return 'заказ';
   if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return 'заказа';
   return 'заказов';
+}
+
+// ── DEBUG ─────────────────────────────────────────────────────────────────────
+async function debugTestPost() {
+  const lines = [];
+  lines.push('=== DEBUG POST TEST ===');
+  lines.push('initData length: ' + (tg.initData || '').length);
+  lines.push('initData preview: ' + (tg.initData || '').slice(0, 60) + '...');
+
+  // Step 1: simple GET
+  lines.push('\n--- Step 1: GET getOrders ---');
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=getOrders&t=' + Date.now(), { redirect: 'follow' });
+    lines.push('GET status: ' + r.status);
+    lines.push('GET ok: ' + r.ok);
+  } catch (e) {
+    lines.push('GET error: ' + e.name + ': ' + e.message);
+  }
+
+  // Step 2: POST with form-encoded body
+  lines.push('\n--- Step 2: POST createPurchase ---');
+  const body = 'action=createPurchase&item=TEST_DEBUG&quantity=1&price=0&status=%D0%9A%D1%83%D0%BF%D0%B8%D1%82%D1%8C&initData=' + encodeURIComponent(tg.initData || '');
+  lines.push('body length: ' + body.length);
+  try {
+    const r = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      redirect: 'follow',
+    });
+    lines.push('POST status: ' + r.status);
+    lines.push('POST ok: ' + r.ok);
+    const text = await r.text();
+    lines.push('POST response: ' + text.slice(0, 200));
+  } catch (e) {
+    lines.push('POST error: ' + e.name + ': ' + e.message);
+    if (e.cause) lines.push('cause: ' + JSON.stringify(e.cause));
+  }
+
+  alert(lines.join('\n'));
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
