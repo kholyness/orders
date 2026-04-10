@@ -462,16 +462,9 @@ async function apiGet(action) {
 
 async function apiPost(data) {
   const body = JSON.stringify({ ...data, initData: tg.initData });
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', SCRIPT_URL);
-    xhr.onload = () => {
-      try { resolve(JSON.parse(xhr.responseText)); }
-      catch (e) { reject(new Error('Invalid JSON: ' + xhr.responseText.slice(0, 100))); }
-    };
-    xhr.onerror = () => reject(new Error('Network error'));
-    xhr.send(body);
-  });
+  const encoded = btoa(unescape(encodeURIComponent(body)));
+  const res = await fetch(SCRIPT_URL + '?write=' + encoded + '&t=' + Date.now(), { redirect: 'follow' });
+  return res.json();
 }
 
 async function loadData() {
