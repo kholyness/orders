@@ -463,8 +463,11 @@ async function apiGet(action) {
 }
 
 async function apiPost(data) {
-  const body = JSON.stringify({ ...data, initData: tg.initData });
-  const res = await fetch(SCRIPT_URL, { method: 'POST', body, redirect: 'follow' });
+  const allData = { ...data, initData: tg.initData };
+  const params = Object.entries(allData)
+    .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v == null ? '' : v))
+    .join('&');
+  const res = await fetch(SCRIPT_URL + '?' + params + '&t=' + Date.now(), { redirect: 'follow' });
   return res.json();
 }
 
