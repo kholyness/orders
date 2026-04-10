@@ -478,7 +478,11 @@ async function fetchSessionToken() {
     { redirect: 'follow' }
   );
   const data = await res.json();
-  if (data.token) sessionToken = data.token;
+  if (data.token) {
+    sessionToken = data.token;
+  } else {
+    alert('DEBUG auth response: ' + JSON.stringify(data));
+  }
 }
 
 async function apiGet(action) {
@@ -487,6 +491,10 @@ async function apiGet(action) {
 }
 
 async function apiPost(data) {
+  if (!sessionToken) {
+    alert('DEBUG: sessionToken is null — auth не прошёл при загрузке');
+    throw new Error('No session token');
+  }
   const allData = { ...data, token: sessionToken };
   const params = Object.entries(allData)
     .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v == null ? '' : v))
