@@ -441,7 +441,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCJSGTv9cSNKek1byncEVG28qIBgYgeqPcfPWOpd7GqGWEfao6j-EkKDMMzVXWyrcM/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxmbo40GB-TDD_0CwRxAYQpDSus7HeQJo0C6FDYogxBifa6b1CVzeIYym5l10cmRME/exec';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['В работе','Очередь','Пауза','Готово'];
 
@@ -922,12 +922,16 @@ function openNewPurchaseForm() {
   document.getElementById('btn-submit-purchase').onclick = async () => {
     const btn = document.getElementById('btn-submit-purchase');
     btn.disabled = true; btn.textContent = 'Добавляем...';
-    const data = { action: 'createPurchase', status: 'Купить' };
-    sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
-    await apiPost(data);
-    await refreshPurchases();
-    closeSheet();
-    renderBuy();
+    try {
+      const data = { action: 'createPurchase', status: 'Купить' };
+      sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+      await apiPost(data);
+      await refreshPurchases();
+      closeSheet();
+      renderBuy();
+    } catch (e) {
+      btn.disabled = false; btn.textContent = 'Добавить';
+    }
   };
 }
 
