@@ -1159,39 +1159,39 @@ function declOrders(n) {
 // ── DEBUG ─────────────────────────────────────────────────────────────────────
 async function debugTestPost() {
   const lines = [];
-  lines.push('=== DEBUG POST TEST ===');
+  lines.push('=== DEBUG POST TEST v2 ===');
   lines.push('initData length: ' + (tg.initData || '').length);
-  lines.push('initData preview: ' + (tg.initData || '').slice(0, 60) + '...');
 
-  // Step 1: simple GET
-  lines.push('\n--- Step 1: GET getOrders ---');
+  // Step 1: GET baseline
+  lines.push('\n--- Step 1: GET (baseline) ---');
   try {
     const r = await fetch(SCRIPT_URL + '?action=getOrders&t=' + Date.now(), { redirect: 'follow' });
-    lines.push('GET status: ' + r.status);
-    lines.push('GET ok: ' + r.ok);
-  } catch (e) {
-    lines.push('GET error: ' + e.name + ': ' + e.message);
-  }
+    lines.push('ok: ' + r.ok + ' status: ' + r.status);
+  } catch (e) { lines.push('ERROR: ' + e.message); }
 
-  // Step 2: POST with form-encoded body
-  lines.push('\n--- Step 2: POST createPurchase ---');
-  const body = 'action=createPurchase&item=TEST_DEBUG&quantity=1&price=0&status=%D0%9A%D1%83%D0%BF%D0%B8%D1%82%D1%8C&initData=' + encodeURIComponent(tg.initData || '');
-  lines.push('body length: ' + body.length);
+  // Step 2: GET with initData in URL
+  lines.push('\n--- Step 2: GET + initData in URL ---');
   try {
+    const p = 'action=getOrders&initData=' + encodeURIComponent(tg.initData || '') + '&t=' + Date.now();
+    lines.push('URL len: ' + (SCRIPT_URL + '?' + p).length);
+    const r = await fetch(SCRIPT_URL + '?' + p, { redirect: 'follow' });
+    lines.push('ok: ' + r.ok + ' status: ' + r.status);
+  } catch (e) { lines.push('ERROR: ' + e.message); }
+
+  // Step 3: POST text/plain with JSON body
+  lines.push('\n--- Step 3: POST text/plain + JSON ---');
+  try {
+    const payload = JSON.stringify({ action: 'createPurchase', item: 'TEST_JSON', quantity: '1', price: '0', status: 'Купить', initData: tg.initData || '' });
+    lines.push('body len: ' + payload.length);
     const r = await fetch(SCRIPT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
+      headers: { 'Content-Type': 'text/plain' },
+      body: payload,
       redirect: 'follow',
     });
-    lines.push('POST status: ' + r.status);
-    lines.push('POST ok: ' + r.ok);
-    const text = await r.text();
-    lines.push('POST response: ' + text.slice(0, 200));
-  } catch (e) {
-    lines.push('POST error: ' + e.name + ': ' + e.message);
-    if (e.cause) lines.push('cause: ' + JSON.stringify(e.cause));
-  }
+    lines.push('ok: ' + r.ok + ' status: ' + r.status);
+    lines.push('resp: ' + (await r.text()).slice(0, 150));
+  } catch (e) { lines.push('ERROR: ' + e.message); }
 
   alert(lines.join('\n'));
 }
