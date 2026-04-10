@@ -386,12 +386,17 @@
     .sp-item.active { font-weight: 600; color: var(--accent); }
 
     .card:active { opacity: 0.7; }
+
+    /* ── Buy status badges ── */
+    .sb-tobuy  { background: rgba(58,102,196,0.13); color: #3a66c4; }
+    .sb-bought { background: rgba(45,138,78,0.15);  color: #2d8a4e; }
   </style>
 </head>
 <body>
 
 <div id="app">
   <div id="tab-orders" class="tab-content active"></div>
+  <div id="tab-buy" class="tab-content"></div>
   <div id="tab-stats" class="tab-content"></div>
   <div id="tab-clients" class="tab-content"></div>
 </div>
@@ -400,6 +405,10 @@
   <button class="tab-btn active" data-tab="orders">
     <span class="tab-icon">📋</span>
     <span>Заказы</span>
+  </button>
+  <button class="tab-btn" data-tab="buy">
+    <span class="tab-icon">🛒</span>
+    <span>Купить</span>
   </button>
   <button class="tab-btn" data-tab="stats">
     <span class="tab-icon">📊</span>
@@ -442,7 +451,7 @@ tg.expand();
 if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 
 // ── State ────────────────────────────────────────────────────────────────────
-const state = { orders: [], archive: [], activeTab: 'orders' };
+const state = { orders: [], archive: [], purchases: [], activeTab: 'orders' };
 
 
 // ── API ──────────────────────────────────────────────────────────────────────
@@ -458,9 +467,15 @@ async function apiPost(data) {
 }
 
 async function loadData() {
-  const [a, b] = await Promise.all([apiGet('getOrders'), apiGet('getArchive')]);
+  const [a, b, c] = await Promise.all([apiGet('getOrders'), apiGet('getArchive'), apiGet('getPurchases')]);
   state.orders = a.orders || [];
   state.archive = b.orders || [];
+  state.purchases = c.purchases || [];
+}
+
+async function refreshPurchases() {
+  const res = await apiGet('getPurchases');
+  state.purchases = res.purchases || [];
 }
 
 async function refreshOrders() {
@@ -480,6 +495,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
   if (tab === 'orders') renderOrders();
+  if (tab === 'buy') renderBuy();
   if (tab === 'stats') renderStats();
   if (tab === 'clients') renderClients();
 }
@@ -808,6 +824,149 @@ function openNewOrderForm() {
     await refreshOrders();
     closeSheet();
     renderOrders();
+  };
+}
+
+// ── BUY TAB ───────────────────────────────────────────────────────────────────
+function renderBuy() {
+  const el = document.getElementById('tab-buy');
+
+  const toBuy   = state.purchases.filter(p => p.status !== 'Куплено');
+  const bought  = state.purchases.filter(p => p.status === 'Куплено');
+
+  let html = `<button class="btn-new-order" id="btn-new-purchase" style="width:100%;border-radius:10px;height:40px;margin-bottom:16px;font-size:15px;font-weight:500">＋ Добавить</button>`;
+
+  if (!state.purchases.length) {
+    html += '<div class="empty">Список покупок пуст</div>';
+    el.innerHTML = html;
+    el.querySelector('#btn-new-purchase').onclick = openNewPurchaseForm;
+    return;
+  }
+
+  function purchaseCard(p) {
+    const done = p.status === 'Куплено';
+    const parts = [];
+    if (p.quantity) parts.push(esc(p.quantity));
+    if (p.orderName) parts.push(`#${esc(p.orderId)} ${esc(p.orderName)}`);
+    else if (p.orderId) parts.push(`#${esc(p.orderId)}`);
+    const sub = parts.join(' · ');
+    return `
+      <div class="card" data-buy-row="${p.rowIndex}">
+        <div class="card-main">
+          <div class="card-title" style="${done ? 'text-decoration:line-through;opacity:0.5' : ''}">${esc(p.item)}</div>
+          ${sub ? `<div class="card-subtitle">${sub}</div>` : ''}
+          ${p.note ? `<div class="card-subtitle" style="color:var(--accent)">● ${esc(p.note)}</div>` : ''}
+        </div>
+        <div class="status-badge ${done ? 'sb-bought' : 'sb-tobuy'}" data-buy-badge="${p.rowIndex}">${done ? 'Куплено' : 'Купить'}</div>
+      </div>`;
+  }
+
+  if (toBuy.length) {
+    html += `<div class="section-header">Купить <span style="color:var(--hint);font-weight:400;letter-spacing:0">(${toBuy.length})</span></div>`;
+    toBuy.forEach(p => { html += purchaseCard(p); });
+  }
+  if (bought.length) {
+    html += `<div class="section-header" style="margin-top:12px">Куплено <span style="color:var(--hint);font-weight:400;letter-spacing:0">(${bought.length})</span></div>`;
+    bought.forEach(p => { html += purchaseCard(p); });
+  }
+
+  el.innerHTML = html;
+  el.querySelector('#btn-new-purchase').onclick = openNewPurchaseForm;
+
+  el.querySelectorAll('.status-badge[data-buy-badge]').forEach(badge => {
+    badge.addEventListener('click', async e => {
+      e.stopPropagation();
+      const row = badge.dataset.buyBadge;
+      const p = state.purchases.find(p => String(p.rowIndex) === String(row));
+      if (!p) return;
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      p.status = p.status === 'Куплено' ? 'Купить' : 'Куплено';
+      renderBuy();
+      await apiPost({ action: 'togglePurchaseStatus', rowIndex: p.rowIndex });
+    });
+  });
+
+  el.querySelectorAll('.card[data-buy-row]').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('.status-badge')) return;
+      const p = state.purchases.find(p => String(p.rowIndex) === String(card.dataset.buyRow));
+      if (p) openPurchaseDetail(p);
+    });
+  });
+}
+
+function _bindOrderIdAutofill() {
+  const orderIdInput = document.getElementById('purchase-order-id');
+  if (!orderIdInput) return;
+  orderIdInput.addEventListener('input', e => {
+    const order = state.orders.find(o => String(o.id) === e.target.value.trim());
+    const nameInput = document.getElementById('purchase-order-name');
+    if (order && nameInput) nameInput.value = order.name;
+  });
+}
+
+function openNewPurchaseForm() {
+  openSheet(`
+    <div class="sheet-title">Новая покупка</div>
+    <div class="field-group"><div class="field-label">Название</div><input class="field-input" name="item" placeholder="Что купить"></div>
+    <div class="field-group"><div class="field-label">Количество</div><input class="field-input" name="quantity" placeholder="Например: 2 м, 3 шт"></div>
+    <div class="field-group"><div class="field-label">Цена</div><input class="field-input" name="price" type="number" placeholder="0"></div>
+    <div class="field-group"><div class="field-label">Номер заказа</div><input class="field-input" name="orderId" id="purchase-order-id" placeholder="Необязательно"></div>
+    <div class="field-group"><div class="field-label">Клиент</div><input class="field-input" name="orderName" id="purchase-order-name" placeholder="Заполнится автоматически"></div>
+    <div class="field-group"><div class="field-label">Заметки</div><textarea class="field-textarea" name="note" placeholder="Необязательно"></textarea></div>
+    <button class="btn-primary" id="btn-submit-purchase" style="margin-top:8px">Добавить</button>
+    <button class="btn-secondary" id="btn-cancel-purchase">Отмена</button>
+  `);
+  _bindOrderIdAutofill();
+  document.getElementById('btn-cancel-purchase').onclick = closeSheet;
+  document.getElementById('btn-submit-purchase').onclick = async () => {
+    const btn = document.getElementById('btn-submit-purchase');
+    btn.disabled = true; btn.textContent = 'Добавляем...';
+    const data = { action: 'createPurchase', status: 'Купить' };
+    sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+    await apiPost(data);
+    await refreshPurchases();
+    closeSheet();
+    renderBuy();
+  };
+}
+
+function openPurchaseDetail(p) {
+  openSheet(`
+    <div class="sheet-title">${esc(p.item)}</div>
+    <div class="field-group"><div class="field-label">Название</div><input class="field-input" name="item" value="${esc(p.item)}"></div>
+    <div class="field-group"><div class="field-label">Количество</div><input class="field-input" name="quantity" value="${esc(p.quantity)}"></div>
+    <div class="field-group"><div class="field-label">Цена</div><input class="field-input" name="price" type="number" value="${esc(p.price)}"></div>
+    <div class="field-group"><div class="field-label">Номер заказа</div><input class="field-input" name="orderId" id="purchase-order-id" value="${esc(p.orderId)}"></div>
+    <div class="field-group"><div class="field-label">Клиент</div><input class="field-input" name="orderName" id="purchase-order-name" value="${esc(p.orderName)}"></div>
+    <div class="field-group"><div class="field-label">Статус</div>
+      <select class="field-select" name="status">
+        <option value="Купить"${p.status !== 'Куплено' ? ' selected' : ''}>Купить</option>
+        <option value="Куплено"${p.status === 'Куплено' ? ' selected' : ''}>Куплено</option>
+      </select>
+    </div>
+    <div class="field-group"><div class="field-label">Заметки</div><textarea class="field-textarea" name="note">${esc(p.note)}</textarea></div>
+    <button class="btn-primary" id="btn-save-purchase" style="margin-top:8px">Сохранить</button>
+    <button class="btn-danger" id="btn-delete-purchase">Удалить</button>
+  `);
+  _bindOrderIdAutofill();
+  document.getElementById('btn-save-purchase').onclick = async () => {
+    const btn = document.getElementById('btn-save-purchase');
+    btn.disabled = true; btn.textContent = 'Сохраняем...';
+    const data = { action: 'updatePurchase', rowIndex: p.rowIndex };
+    sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+    await apiPost(data);
+    await refreshPurchases();
+    closeSheet();
+    renderBuy();
+  };
+  document.getElementById('btn-delete-purchase').onclick = async () => {
+    const btn = document.getElementById('btn-delete-purchase');
+    btn.disabled = true; btn.textContent = 'Удаляем...';
+    await apiPost({ action: 'deletePurchase', rowIndex: p.rowIndex });
+    await refreshPurchases();
+    closeSheet();
+    renderBuy();
   };
 }
 
