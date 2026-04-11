@@ -414,6 +414,37 @@
     /* ── Buy status badges ── */
     .sb-tobuy  { background: rgba(58,102,196,0.13); color: #3a66c4; }
     .sb-bought { background: rgba(45,138,78,0.15);  color: #2d8a4e; }
+
+    /* ── Purchase rows ── */
+    .purchase-row {
+      display: flex; align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(128,128,128,0.12);
+      gap: 10px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .purchase-row:last-child { border-bottom: none; }
+    .purchase-cb {
+      width: 22px; height: 22px; border-radius: 6px;
+      border: 2px solid var(--hint);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: var(--accent-text);
+      cursor: pointer; user-select: none;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .purchase-cb.checked { background: var(--accent); border-color: var(--accent); }
+    .purchase-row-info { flex: 1; min-width: 0; }
+    .purchase-row-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .purchase-row-title.done { text-decoration: line-through; opacity: 0.45; }
+    .purchase-row-sub { font-size: 12px; color: var(--hint); margin-top: 1px; }
+    .purchase-edit-btn {
+      background: none; border: none;
+      color: var(--hint); font-size: 17px;
+      padding: 4px 6px; cursor: pointer; flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      line-height: 1;
+    }
   </style>
 </head>
 <body>
@@ -467,7 +498,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.3.0';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
@@ -762,6 +793,26 @@ function renderOrderDetail(order) {
   const f = (label, name, value, type = 'text') =>
     `<div class="field-group"><div class="field-label">${label}</div><input class="field-input" type="${type}" name="${name}" value="${esc(value || '')}"></div>`;
 
+  const linked = state.purchases.filter(p => String(p.orderId) === String(order.id));
+  let purchasesHtml = '<div class="section-header" style="margin-top:16px">Покупки</div>';
+  if (linked.length) {
+    linked.forEach(p => {
+      const done = p.status === 'Куплено';
+      purchasesHtml += `
+        <div class="purchase-row">
+          <div class="purchase-cb${done ? ' checked' : ''}" data-order-cb="${p.rowIndex}">${done ? '✓' : ''}</div>
+          <div class="purchase-row-info">
+            <div class="purchase-row-title${done ? ' done' : ''}">${esc(p.item)}</div>
+            ${p.quantity ? `<div class="purchase-row-sub">${esc(p.quantity)}</div>` : ''}
+          </div>
+          <button class="purchase-edit-btn" data-order-edit="${p.rowIndex}">✏</button>
+        </div>`;
+    });
+  } else {
+    purchasesHtml += '<div style="color:var(--hint);font-size:14px;padding:4px 0 6px">Нет покупок</div>';
+  }
+  purchasesHtml += '<button class="btn-secondary" id="btn-add-purchase-inline" style="margin-top:6px;width:100%">＋ Добавить покупку</button>';
+
   const html = `
     <div class="sheet-title">
       <span>#${order.rowNum} ${esc(order.name) || ''}</span>
@@ -781,6 +832,7 @@ function renderOrderDetail(order) {
     <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
     <button class="btn-primary" id="btn-save" style="margin-top:8px">Сохранить</button>
     ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
+    ${purchasesHtml}
   `;
 
   openSheet(html);
@@ -820,6 +872,36 @@ function renderOrderDetail(order) {
     await refreshOrders();
     closeSheet();
     renderOrders();
+  };
+
+  // Purchases section events
+  sheetContent.querySelectorAll('[data-order-cb]').forEach(cb => {
+    cb.addEventListener('click', async () => {
+      const row = cb.dataset.orderCb;
+      const p = state.purchases.find(p => String(p.rowIndex) === String(row));
+      if (!p) return;
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      p.status = p.status === 'Куплено' ? 'Купить' : 'Куплено';
+      renderOrderDetail(order);
+      await apiPost({ action: 'togglePurchaseStatus', rowIndex: p.rowIndex });
+    });
+  });
+
+  sheetContent.querySelectorAll('[data-order-edit]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const row = btn.dataset.orderEdit;
+      const p = state.purchases.find(p => String(p.rowIndex) === String(row));
+      if (p) openPurchaseDetail(p, () => renderOrderDetail(order));
+    });
+  });
+
+  document.getElementById('btn-add-purchase-inline').onclick = () => {
+    openNewPurchaseForm({
+      prefillOrderId: order.id,
+      prefillOrderName: order.name,
+      onDone: async () => { await refreshPurchases(); renderOrderDetail(order); }
+    });
   };
 
 }
@@ -886,8 +968,8 @@ function openNewOrderForm() {
 function renderBuy() {
   const el = document.getElementById('tab-buy');
 
-  const toBuy   = state.purchases.filter(p => p.status !== 'Куплено');
-  const bought  = state.purchases.filter(p => p.status === 'Куплено');
+  const toBuy  = state.purchases.filter(p => p.status !== 'Куплено');
+  const bought = state.purchases.filter(p => p.status === 'Куплено');
 
   let html = `<button class="btn-new-order" id="btn-new-purchase" style="width:100%;border-radius:10px;height:40px;margin-bottom:16px;font-size:15px;font-weight:500">＋ Добавить</button>`;
 
@@ -898,40 +980,35 @@ function renderBuy() {
     return;
   }
 
-  function purchaseCard(p) {
+  function purchaseRow(p) {
     const done = p.status === 'Куплено';
-    const parts = [];
-    if (p.quantity) parts.push(esc(p.quantity));
-    if (p.orderName) parts.push(`#${esc(p.orderId)} ${esc(p.orderName)}`);
-    else if (p.orderId) parts.push(`#${esc(p.orderId)}`);
-    const sub = parts.join(' · ');
+    const sub = [p.quantity, p.orderId ? `#${esc(p.orderId)}` : ''].filter(Boolean).join(' · ');
     return `
-      <div class="card" data-buy-row="${p.rowIndex}">
-        <div class="card-main">
-          <div class="card-title" style="${done ? 'text-decoration:line-through;opacity:0.5' : ''}">${esc(p.item)}</div>
-          ${sub ? `<div class="card-subtitle">${sub}</div>` : ''}
-          ${p.note ? `<div class="card-subtitle" style="color:var(--accent)">● ${esc(p.note)}</div>` : ''}
+      <div class="purchase-row">
+        <div class="purchase-cb${done ? ' checked' : ''}" data-buy-cb="${p.rowIndex}">${done ? '✓' : ''}</div>
+        <div class="purchase-row-info">
+          <div class="purchase-row-title${done ? ' done' : ''}">${esc(p.item)}</div>
+          ${sub ? `<div class="purchase-row-sub">${sub}</div>` : ''}
         </div>
-        <div class="status-badge ${done ? 'sb-bought' : 'sb-tobuy'}" data-buy-badge="${p.rowIndex}">${done ? 'Куплено' : 'Купить'}</div>
+        <button class="purchase-edit-btn" data-buy-edit="${p.rowIndex}">✏</button>
       </div>`;
   }
 
   if (toBuy.length) {
     html += `<div class="section-header">Купить <span style="color:var(--hint);font-weight:400;letter-spacing:0">(${toBuy.length})</span></div>`;
-    toBuy.forEach(p => { html += purchaseCard(p); });
+    toBuy.forEach(p => { html += purchaseRow(p); });
   }
   if (bought.length) {
     html += `<div class="section-header" style="margin-top:12px">Куплено <span style="color:var(--hint);font-weight:400;letter-spacing:0">(${bought.length})</span></div>`;
-    bought.forEach(p => { html += purchaseCard(p); });
+    bought.forEach(p => { html += purchaseRow(p); });
   }
 
   el.innerHTML = html;
   el.querySelector('#btn-new-purchase').onclick = openNewPurchaseForm;
 
-  el.querySelectorAll('.status-badge[data-buy-badge]').forEach(badge => {
-    badge.addEventListener('click', async e => {
-      e.stopPropagation();
-      const row = badge.dataset.buyBadge;
+  el.querySelectorAll('[data-buy-cb]').forEach(cb => {
+    cb.addEventListener('click', async () => {
+      const row = cb.dataset.buyCb;
       const p = state.purchases.find(p => String(p.rowIndex) === String(row));
       if (!p) return;
       if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
@@ -941,95 +1018,82 @@ function renderBuy() {
     });
   });
 
-  el.querySelectorAll('.card[data-buy-row]').forEach(card => {
-    card.addEventListener('click', e => {
-      if (e.target.closest('.status-badge')) return;
-      const p = state.purchases.find(p => String(p.rowIndex) === String(card.dataset.buyRow));
+  el.querySelectorAll('[data-buy-edit]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const row = btn.dataset.buyEdit;
+      const p = state.purchases.find(p => String(p.rowIndex) === String(row));
       if (p) openPurchaseDetail(p);
     });
   });
 }
 
-function _bindOrderIdAutofill() {
-  const orderIdInput = document.getElementById('purchase-order-id');
-  if (!orderIdInput) return;
-  orderIdInput.addEventListener('input', e => {
-    const order = state.orders.find(o => String(o.id) === e.target.value.trim());
-    const nameInput = document.getElementById('purchase-order-name');
-    if (order && nameInput) nameInput.value = order.name;
-  });
-}
-
-function openNewPurchaseForm() {
+function openNewPurchaseForm(options = {}) {
+  const { prefillOrderId = '', prefillOrderName = '', onDone } = options;
   openSheet(`
     <div class="sheet-title">Новая покупка</div>
     <div class="field-group"><div class="field-label">Название</div><input class="field-input" name="item" placeholder="Что купить"></div>
     <div class="field-group"><div class="field-label">Количество</div><input class="field-input" name="quantity" placeholder="Например: 2 м, 3 шт"></div>
-    <div class="field-group"><div class="field-label">Цена</div><input class="field-input" name="price" type="number" placeholder="0"></div>
-    <div class="field-group"><div class="field-label">Номер заказа</div><input class="field-input" name="orderId" id="purchase-order-id" placeholder="Необязательно"></div>
-    <div class="field-group"><div class="field-label">Клиент</div><input class="field-input" name="orderName" id="purchase-order-name" placeholder="Заполнится автоматически"></div>
-    <div class="field-group"><div class="field-label">Заметки</div><textarea class="field-textarea" name="note" placeholder="Необязательно"></textarea></div>
+    <div class="field-group"><div class="field-label">Номер заказа</div><input class="field-input" name="orderId" placeholder="Необязательно" value="${esc(prefillOrderId)}"></div>
     <button class="btn-primary" id="btn-submit-purchase" style="margin-top:8px">Добавить</button>
     <button class="btn-secondary" id="btn-cancel-purchase">Отмена</button>
   `);
-  _bindOrderIdAutofill();
-  document.getElementById('btn-cancel-purchase').onclick = closeSheet;
+  const cancel = onDone || closeSheet;
+  document.getElementById('btn-cancel-purchase').onclick = cancel;
   document.getElementById('btn-submit-purchase').onclick = async () => {
     const btn = document.getElementById('btn-submit-purchase');
     btn.disabled = true; btn.textContent = 'Добавляем...';
     try {
       const data = { action: 'createPurchase', status: 'Купить' };
       sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+      // Auto-populate orderName from state
+      if (data.orderId) {
+        const ord = state.orders.find(o => String(o.id) === data.orderId.trim());
+        data.orderName = ord ? ord.name : prefillOrderName;
+      } else if (prefillOrderName) {
+        data.orderName = prefillOrderName;
+      }
       const res = await apiPost(data);
-      console.log('createPurchase response:', JSON.stringify(res));
       if (res.error) { alert('Ошибка: ' + res.error); btn.disabled = false; btn.textContent = 'Добавить'; return; }
       await refreshPurchases();
-      closeSheet();
-      renderBuy();
+      if (onDone) { onDone(); } else { closeSheet(); renderBuy(); }
     } catch (e) {
-      console.error('createPurchase catch:', e);
       btn.disabled = false; btn.textContent = 'Добавить';
       alert('Ошибка при добавлении: ' + e.message);
     }
   };
 }
 
-function openPurchaseDetail(p) {
+function openPurchaseDetail(p, onDone) {
   openSheet(`
     <div class="sheet-title">${esc(p.item)}</div>
     <div class="field-group"><div class="field-label">Название</div><input class="field-input" name="item" value="${esc(p.item)}"></div>
     <div class="field-group"><div class="field-label">Количество</div><input class="field-input" name="quantity" value="${esc(p.quantity)}"></div>
-    <div class="field-group"><div class="field-label">Цена</div><input class="field-input" name="price" type="number" value="${esc(p.price)}"></div>
-    <div class="field-group"><div class="field-label">Номер заказа</div><input class="field-input" name="orderId" id="purchase-order-id" value="${esc(p.orderId)}"></div>
-    <div class="field-group"><div class="field-label">Клиент</div><input class="field-input" name="orderName" id="purchase-order-name" value="${esc(p.orderName)}"></div>
-    <div class="field-group"><div class="field-label">Статус</div>
-      <select class="field-select" name="status">
-        <option value="Купить"${p.status !== 'Куплено' ? ' selected' : ''}>Купить</option>
-        <option value="Куплено"${p.status === 'Куплено' ? ' selected' : ''}>Куплено</option>
-      </select>
-    </div>
-    <div class="field-group"><div class="field-label">Заметки</div><textarea class="field-textarea" name="note">${esc(p.note)}</textarea></div>
+    <div class="field-group"><div class="field-label">Номер заказа</div><input class="field-input" name="orderId" value="${esc(p.orderId)}"></div>
     <button class="btn-primary" id="btn-save-purchase" style="margin-top:8px">Сохранить</button>
     <button class="btn-danger" id="btn-delete-purchase">Удалить</button>
   `);
-  _bindOrderIdAutofill();
+  const done = onDone || (() => { closeSheet(); renderBuy(); });
   document.getElementById('btn-save-purchase').onclick = async () => {
     const btn = document.getElementById('btn-save-purchase');
     btn.disabled = true; btn.textContent = 'Сохраняем...';
     const data = { action: 'updatePurchase', rowIndex: p.rowIndex };
     sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
+    // Keep orderName in sync if orderId changed
+    if (data.orderId) {
+      const ord = state.orders.find(o => String(o.id) === data.orderId.trim());
+      if (ord) data.orderName = ord.name;
+    }
     await apiPost(data);
     await refreshPurchases();
-    closeSheet();
-    renderBuy();
+    done();
   };
   document.getElementById('btn-delete-purchase').onclick = async () => {
     const btn = document.getElementById('btn-delete-purchase');
     btn.disabled = true; btn.textContent = 'Удаляем...';
     await apiPost({ action: 'deletePurchase', rowIndex: p.rowIndex });
     await refreshPurchases();
-    closeSheet();
-    renderBuy();
+    done();
   };
 }
 
