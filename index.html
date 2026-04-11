@@ -739,6 +739,10 @@ function openOrderDetail(id, source) {
 }
 
 function addPhoto(orderId) {
+  if (BOT_USERNAME === 'YourBotUsername') {
+    tg.showAlert('BOT_USERNAME не настроен. Обратитесь к администратору.');
+    return;
+  }
   tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?text=${encodeURIComponent(orderId)}`);
 }
 

@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from auth import generate_token, validate_init_data, validate_token
+from auth import ALLOWED_CHAT_IDS, generate_token, validate_init_data, validate_token
 from db import DB_PATH, init_db
 
 load_dotenv()
@@ -532,6 +532,8 @@ async def send_monthly_stats():
 
 async def handle_bot_message(msg: dict):
     chat_id = msg["chat"]["id"]
+    if str(chat_id) not in ALLOWED_CHAT_IDS:
+        return
     text = (msg.get("text") or msg.get("caption") or "").strip()
     photo = msg.get("photo")
 
