@@ -89,7 +89,6 @@ Photo handling — two flows supported:
 ### Key Constants (index.html)
 ```js
 const SCRIPT_URL = '...'; // Backend URL (FastAPI server)
-const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['В работе','Очередь','Пауза','Готово']; // Display order
 ```
@@ -116,7 +115,7 @@ journalctl -u moroska -f
 
 Each incoming bot message is logged at INFO level:
 ```
-2026-04-11 12:00:01 INFO bot msg chat=123456 text='0411-123' has_photo=False
+2026-04-11 12:00:01 INFO bot msg chat=123456 text='в работе 0411-123'
 ```
 
 Messages from unknown `chat_id`s are logged at WARNING. Unhandled exceptions include a full traceback via `logger.exception`.

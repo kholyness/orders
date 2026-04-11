@@ -1,30 +1,16 @@
 import asyncio
-import io
 import os
 
 import gspread
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
 ]
 CREDS_FILE = os.getenv("GOOGLE_CREDS_FILE", "credentials.json")
 SHEET_ID = os.getenv("SHEET_ID", "")
-DRIVE_FOLDER_ID = os.getenv("DRIVE_FOLDER_ID", "")
 
 _spreadsheet = None
-_drive_service = None
-
-
-def _get_drive():
-    global _drive_service
-    if _drive_service is None:
-        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
-        _drive_service = build("drive", "v3", credentials=creds)
-    return _drive_service
 
 
 def _get_ws(name: str):
@@ -102,14 +88,6 @@ def _update_order_sync(order_id: str, col_updates: dict) -> bool:
     return True
 
 
-def _get_order_photo_sync(order_id: str) -> str | None:
-    ws, row_num = _find_order_row_sync(order_id)
-    if row_num is None:
-        return None
-    row = _pad(ws.row_values(row_num), 17)
-    return row[14]
-
-
 def _move_to_archive_sync(order_id: str) -> bool:
     ws_orders, row_num = _find_order_row_sync(order_id)
     if row_num is None:
@@ -151,27 +129,6 @@ def _delete_purchase_sync(row_num: int):
     _get_ws("Purchase").delete_rows(row_num)
 
 
-# ── Google Drive ───────────────────────────────────────────────────────────────
-
-def _create_drive_folder_sync(name: str) -> str:
-    """Creates a subfolder under DRIVE_FOLDER_ID; returns the new folder's ID."""
-    drive = _get_drive()
-    meta = {
-        "name": name,
-        "mimeType": "application/vnd.google-apps.folder",
-        "parents": [DRIVE_FOLDER_ID],
-    }
-    folder = drive.files().create(body=meta, fields="id").execute()
-    return folder["id"]
-
-
-def _upload_photo_to_drive_sync(folder_id: str, filename: str, content: bytes) -> None:
-    drive = _get_drive()
-    meta = {"name": filename, "parents": [folder_id]}
-    media = MediaIoBaseUpload(io.BytesIO(content), mimetype="image/jpeg")
-    drive.files().create(body=meta, media_body=media, fields="id").execute()
-
-
 # ── Async wrappers ─────────────────────────────────────────────────────────────
 
 async def get_orders() -> list:
@@ -188,9 +145,6 @@ async def append_order(row: list):
 
 async def update_order(order_id: str, col_updates: dict) -> bool:
     return await asyncio.to_thread(_update_order_sync, order_id, col_updates)
-
-async def get_order_photo(order_id: str) -> str | None:
-    return await asyncio.to_thread(_get_order_photo_sync, order_id)
 
 async def move_to_archive(order_id: str) -> bool:
     return await asyncio.to_thread(_move_to_archive_sync, order_id)
@@ -209,9 +163,3 @@ async def get_purchase_status(row_num: int) -> str | None:
 
 async def delete_purchase(row_num: int):
     await asyncio.to_thread(_delete_purchase_sync, row_num)
-
-async def create_drive_folder(name: str) -> str:
-    return await asyncio.to_thread(_create_drive_folder_sync, name)
-
-async def upload_photo_to_drive(folder_id: str, filename: str, content: bytes) -> None:
-    await asyncio.to_thread(_upload_photo_to_drive_sync, folder_id, filename, content)

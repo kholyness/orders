@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("TOKEN", "")
 MY_CHAT_ID = os.getenv("MY_CHAT_ID", "")
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -28,7 +27,6 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 @app.on_event("startup")
 async def on_startup():
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
     asyncio.create_task(bot_polling_loop())
     asyncio.create_task(scheduled_tasks_loop())
 
@@ -56,7 +54,6 @@ def row_to_order(row) -> dict:
         "price": row[11] or "",
         "deadline": row[12] or "",
         "status": row[13] or "",
-        "photo": row[14] or "",
         "note": row[15] or "",
         "comment": row[16] or "",
     }
@@ -207,16 +204,6 @@ async def create_order(p: dict) -> dict:
     suffix = client_id[-3:] if len(client_id) >= 3 else str(row_num).zfill(3)
     order_id = f"{ddmm}-{suffix}"
 
-    if sheets.DRIVE_FOLDER_ID:
-        folder_id = await sheets.create_drive_folder(order_id)
-        photo_field = f"drive:{folder_id}"
-        folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
-    else:
-        photo_dir = os.path.join(UPLOAD_DIR, order_id)
-        os.makedirs(photo_dir, exist_ok=True)
-        photo_field = photo_dir
-        folder_url = photo_dir
-
     row = [
         str(row_num),
         order_id,
@@ -232,12 +219,12 @@ async def create_order(p: dict) -> dict:
         p.get("price", ""),
         p.get("deadline", ""),
         "Очередь",
-        photo_field,
+        "",
         "",
         p.get("comment", ""),
     ]
     await sheets.append_order(row)
-    return {"success": True, "id": order_id, "folderUrl": folder_url}
+    return {"success": True, "id": order_id}
 
 
 async def update_order(p: dict) -> dict:
@@ -298,38 +285,6 @@ async def send_message(chat_id, text: str):
                   "disable_web_page_preview": True},
             timeout=10,
         )
-
-
-async def fetch_photo_bytes(file_id: str) -> bytes:
-    async with httpx.AsyncClient() as client:
-        r = await client.get(f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}")
-        file_path = r.json()["result"]["file_path"]
-        return (await client.get(f"https://api.telegram.org/file/bot{TOKEN}/{file_path}")).content
-
-
-async def download_photo(file_id: str, dest_path: str):
-    content = await fetch_photo_bytes(file_id)
-    with open(dest_path, "wb") as f:
-        f.write(content)
-
-
-async def save_photo_to_order(order_id: str, photo: list, prefix: str) -> bool:
-    folder = await sheets.get_order_photo(order_id)
-    if folder is None:
-        return False
-    file_id = photo[-1]["file_id"]
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{prefix}_{order_id}_{ts}.jpg"
-
-    if folder and folder.startswith("drive:"):
-        drive_folder_id = folder[6:]
-        content = await fetch_photo_bytes(file_id)
-        await sheets.upload_photo_to_drive(drive_folder_id, filename, content)
-    else:
-        local_folder = folder or os.path.join(UPLOAD_DIR, order_id)
-        os.makedirs(local_folder, exist_ok=True)
-        await download_photo(file_id, os.path.join(local_folder, filename))
-    return True
 
 
 # ── Bot report functions ───────────────────────────────────────────────────────
@@ -435,7 +390,7 @@ async def get_models_stat(month_arg: str | None) -> str:
     return f"{title}:\n\n{lines}"
 
 
-async def add_new_order_from_bot(chat_id, text: str, photo: list | None):
+async def add_new_order_from_bot(chat_id, text: str):
     lines = text.split("\n")
     d = {"name": "Имя", "username": "", "item": "Изделие", "model": "Не указана",
          "details": "", "price": "0", "deadline": "", "comment": ""}
@@ -454,8 +409,6 @@ async def add_new_order_from_bot(chat_id, text: str, photo: list | None):
                 d[en] = val
     result = await create_order(d)
     order_id = result.get("id", "?")
-    if photo:
-        await save_photo_to_order(order_id, photo, "Эскиз")
     await send_message(chat_id, f"✅ Заказ <b>#{order_id}</b> добавлен!\nМодель: <b>{d['model']}</b>")
 
 
@@ -490,18 +443,13 @@ async def send_monthly_stats():
 
 # ── Bot message handler ────────────────────────────────────────────────────────
 
-# In-memory state: waiting for a photo after user sent an order ID
-_pending_photo: dict[str, str] = {}  # str(chat_id) -> order_id
-
-
 async def handle_bot_message(msg: dict):
     chat_id = msg["chat"]["id"]
     if str(chat_id) not in ALLOWED_CHAT_IDS:
         logger.warning("ignored message from unknown chat_id=%s", chat_id)
         return
-    text = (msg.get("text") or msg.get("caption") or "").strip()
-    photo = msg.get("photo")
-    logger.info("bot msg chat=%s text=%r has_photo=%s", chat_id, text, bool(photo))
+    text = (msg.get("text") or "").strip()
+    logger.info("bot msg chat=%s text=%r", chat_id, text)
 
     try:
         if text in ("/new", "/start"):
@@ -539,38 +487,13 @@ async def handle_bot_message(msg: dict):
                     f"📦 Заказ <b>#{order_id}</b> перенесен в архив!" if ok else "❌ Не найден.")
             else:
                 ok = await sheets.update_order(order_id, {13: final_status})
-                if ok and photo:
-                    await save_photo_to_order(order_id, photo, final_status)
                 await send_message(chat_id,
                     f"✅ <b>#{order_id}</b> статус: {final_status}" if ok else "❌ Не найден.")
             return
 
         if "новый заказ" in text.lower():
-            await add_new_order_from_bot(chat_id, text, photo)
+            await add_new_order_from_bot(chat_id, text)
             return
-
-        # Photo + order ID in caption — one-step flow
-        if re.match(r"^\d+$|^\d{4}-\d{3}$", text) and photo:
-            _pending_photo.pop(str(chat_id), None)
-            ok = await save_photo_to_order(text, photo, "Процесс")
-            await send_message(chat_id,
-                f"📸 Фото сохранено в <b>#{text}</b>" if ok else "❌ Не найден.")
-            return
-
-        # Order ID as plain text (no photo) — remember it, ask for photo
-        if re.match(r"^\d+$|^\d{4}-\d{3}$", text) and not photo:
-            _pending_photo[str(chat_id)] = text
-            await send_message(chat_id, f"📸 Теперь отправь фото для заказа <b>#{text}</b>")
-            return
-
-        # Photo arrives after a pending order ID (two-step flow from Mini App)
-        if photo:
-            order_id = _pending_photo.pop(str(chat_id), None)
-            if order_id:
-                ok = await save_photo_to_order(order_id, photo, "Процесс")
-                await send_message(chat_id,
-                    f"📸 Фото сохранено в <b>#{order_id}</b>" if ok else "❌ Не найден.")
-                return
 
     except Exception as e:
         logger.exception("unhandled error in handle_bot_message chat=%s", chat_id)
