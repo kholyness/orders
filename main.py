@@ -356,7 +356,8 @@ async def save_photo_to_order(order_id: str, photo: list, prefix: str) -> bool:
     folder = row[0] or os.path.join(UPLOAD_DIR, order_id)
     os.makedirs(folder, exist_ok=True)
     file_id = photo[-1]["file_id"]
-    dest = os.path.join(folder, f"{prefix}_{order_id}.jpg")
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = os.path.join(folder, f"{prefix}_{order_id}_{ts}.jpg")
     await download_photo(file_id, dest)
     return True
 
@@ -580,7 +581,7 @@ async def handle_bot_message(msg: dict):
             await add_new_order_from_bot(chat_id, text, photo)
             return
 
-        if re.match(r"^\d+$", text) and photo:
+        if re.match(r"^\d+$|^\d{4}-\d{3}$", text) and photo:
             ok = await save_photo_to_order(text, photo, "Процесс")
             await send_message(chat_id,
                 f"📸 Фото сохранено в <b>#{text}</b>" if ok else "❌ Не найден.")
