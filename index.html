@@ -523,11 +523,11 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.3.3';
+const APP_VERSION = '1.3.4';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
-const STATUS_ORDER = ['Готово','В работе','Пауза','Очередь','Получен'];
+const STATUS_ORDER = ['Получен','Готово','В работе','Пауза','Очередь'];
 
 // ── Telegram WebApp ──────────────────────────────────────────────────────────
 const tg = window.Telegram.WebApp;
@@ -750,9 +750,13 @@ function renderOrders() {
     const list = grouped[status];
     if (!list.length) return;
 
-    const isCollapsed = collapsedSections.has(status);
+    const isCollapsed = status !== 'Получен' && collapsedSections.has(status);
     html += `<div class="status-section" data-status="${status}">`;
-    html += `<div class="section-header section-header-collapsible" data-collapse-status="${status}"><span class="section-chevron${isCollapsed ? ' collapsed' : ''}">▼</span>${status} <span style="color:var(--hint);font-weight:400;letter-spacing:0;text-transform:none">(${list.length})</span></div>`;
+    if (status === 'Получен') {
+      html += `<div class="section-header" style="margin-top:0">${status} <span style="color:var(--hint);font-weight:400;letter-spacing:0;text-transform:none">(${list.length})</span></div>`;
+    } else {
+      html += `<div class="section-header section-header-collapsible" data-collapse-status="${status}"><span class="section-chevron${isCollapsed ? ' collapsed' : ''}">▼</span>${status} <span style="color:var(--hint);font-weight:400;letter-spacing:0;text-transform:none">(${list.length})</span></div>`;
+    }
 
     if (!isCollapsed) {
       list.forEach(o => {
