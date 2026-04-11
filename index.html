@@ -467,7 +467,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
@@ -826,8 +826,8 @@ function renderOrderDetail(order) {
 
 // ── NEW ORDER FORM ────────────────────────────────────────────────────────────
 function openNewOrderForm() {
-  const modelOptions = ['', ...MODELS]
-    .map(m => `<option value="${m}">${m || '— модель —'}</option>`)
+  const statusOptions = ['Очередь','В работе','Пауза','Готово']
+    .map(s => `<option value="${s}"${s === 'Очередь' ? ' selected' : ''}>${s}</option>`)
     .join('');
 
   openSheet(`
@@ -840,19 +840,14 @@ function openNewOrderForm() {
     </div>
     <input type="hidden" name="type" value="Заказ">
     <div class="field-group"><div class="field-label">Имя</div><input class="field-input" name="name" placeholder="Имя клиента"></div>
-    <div class="field-group"><div class="field-label">Username</div><input class="field-input" name="username" placeholder="@username (необязательно)"></div>
     <div class="field-group"><div class="field-label">Изделие</div><input class="field-input" name="item" placeholder="Название изделия"></div>
-    <div class="field-group"><div class="field-label">Артикул</div><input class="field-input" name="article" placeholder="Необязательно"></div>
-    <div class="field-group">
-      <div class="field-label">Модель</div>
-      <select class="field-select" name="model">${modelOptions}</select>
-    </div>
     <div class="field-group"><div class="field-label">Детали</div><textarea class="field-textarea" name="details" placeholder="Размер, цвет, материал..."></textarea></div>
-    <div class="field-group"><div class="field-label">Цена (RSD)</div><input class="field-input" name="price" type="number" placeholder="0"></div>
+    <div class="field-group"><div class="field-label">Цена</div><input class="field-input" name="price" type="number" placeholder="0"></div>
     <div class="field-group"><div class="field-label">Срок</div><input class="field-input" name="deadline" type="date"></div>
-    <div class="field-group"><div class="field-label">Комментарий</div><input class="field-input" name="comment" placeholder="Необязательно"></div>
+    <div class="field-group"><div class="field-label">Комментарий клиента</div><input class="field-input" name="comment" placeholder="Необязательно"></div>
+    <div class="field-group"><div class="field-label">Заметка</div><input class="field-input" name="note" placeholder="Необязательно"></div>
+    <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
     <button class="btn-primary" id="btn-submit" style="margin-top:8px">Добавить заказ</button>
-    <button class="btn-secondary" id="btn-cancel-new">Отмена</button>
   `);
 
   const pill2 = sheetContent.querySelector('#type-pill');
@@ -863,8 +858,6 @@ function openNewOrderForm() {
     pill2.classList.toggle('is-nalichie', !isNalichie);
     pill2.querySelector('.type-pill-label').textContent = isNalichie ? 'Заказ' : 'Наличие';
   };
-
-  document.getElementById('btn-cancel-new').onclick = closeSheet;
 
   document.getElementById('btn-submit').onclick = async () => {
     const btn = document.getElementById('btn-submit');
