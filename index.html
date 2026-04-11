@@ -498,7 +498,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
@@ -982,7 +982,9 @@ function renderBuy() {
 
   function purchaseRow(p) {
     const done = p.status === 'Куплено';
-    const sub = [p.quantity, p.orderId ? `#${esc(p.orderId)}` : ''].filter(Boolean).join(' · ');
+    const linkedOrd = p.orderId ? state.orders.find(o => String(o.id) === String(p.orderId)) : null;
+    const orderRef = linkedOrd ? `#${linkedOrd.rowNum}` : (p.orderId ? `#${esc(p.orderId)}` : '');
+    const sub = [p.quantity, orderRef].filter(Boolean).join(' · ');
     return `
       <div class="purchase-row">
         <div class="purchase-cb${done ? ' checked' : ''}" data-buy-cb="${p.rowIndex}">${done ? '✓' : ''}</div>
@@ -1030,11 +1032,13 @@ function renderBuy() {
 
 function openNewPurchaseForm(options = {}) {
   const { prefillOrderId = '', prefillOrderName = '', onDone } = options;
+  const prefillOrd = prefillOrderId ? state.orders.find(o => String(o.id) === String(prefillOrderId)) : null;
+  const prefillOrderNum = prefillOrd ? String(prefillOrd.rowNum) : '';
   openSheet(`
     <div class="sheet-title">Новая покупка</div>
     <div class="field-group"><div class="field-label">Название</div><input class="field-input" name="item" placeholder="Что купить"></div>
     <div class="field-group"><div class="field-label">Количество</div><input class="field-input" name="quantity" placeholder="Например: 2 м, 3 шт"></div>
-    <div class="field-group"><div class="field-label">Номер заказа</div><input class="field-input" name="orderId" placeholder="Необязательно" value="${esc(prefillOrderId)}"></div>
+    <div class="field-group"><div class="field-label">№ заказа</div><input class="field-input" name="orderNum" type="number" placeholder="Необязательно" value="${esc(prefillOrderNum)}"></div>
     <button class="btn-primary" id="btn-submit-purchase" style="margin-top:8px">Добавить</button>
     <button class="btn-secondary" id="btn-cancel-purchase">Отмена</button>
   `);
@@ -1046,10 +1050,13 @@ function openNewPurchaseForm(options = {}) {
     try {
       const data = { action: 'createPurchase', status: 'Купить' };
       sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
-      // Auto-populate orderName from state
-      if (data.orderId) {
-        const ord = state.orders.find(o => String(o.id) === data.orderId.trim());
-        data.orderName = ord ? ord.name : prefillOrderName;
+      // Convert orderNum → orderId
+      const orderNumVal = (data.orderNum || '').trim();
+      delete data.orderNum;
+      if (orderNumVal) {
+        const ord = state.orders.find(o => String(o.rowNum) === orderNumVal);
+        if (ord) { data.orderId = ord.id; data.orderName = ord.name; }
+        else { data.orderId = orderNumVal; data.orderName = prefillOrderName; }
       } else if (prefillOrderName) {
         data.orderName = prefillOrderName;
       }
@@ -1065,11 +1072,13 @@ function openNewPurchaseForm(options = {}) {
 }
 
 function openPurchaseDetail(p, onDone) {
+  const linkedOrd = p.orderId ? state.orders.find(o => String(o.id) === String(p.orderId)) : null;
+  const currentOrderNum = linkedOrd ? String(linkedOrd.rowNum) : '';
   openSheet(`
     <div class="sheet-title">${esc(p.item)}</div>
     <div class="field-group"><div class="field-label">Название</div><input class="field-input" name="item" value="${esc(p.item)}"></div>
     <div class="field-group"><div class="field-label">Количество</div><input class="field-input" name="quantity" value="${esc(p.quantity)}"></div>
-    <div class="field-group"><div class="field-label">Номер заказа</div><input class="field-input" name="orderId" value="${esc(p.orderId)}"></div>
+    <div class="field-group"><div class="field-label">№ заказа</div><input class="field-input" name="orderNum" type="number" placeholder="Необязательно" value="${esc(currentOrderNum)}"></div>
     <button class="btn-primary" id="btn-save-purchase" style="margin-top:8px">Сохранить</button>
     <button class="btn-danger" id="btn-delete-purchase">Удалить</button>
   `);
@@ -1079,10 +1088,15 @@ function openPurchaseDetail(p, onDone) {
     btn.disabled = true; btn.textContent = 'Сохраняем...';
     const data = { action: 'updatePurchase', rowIndex: p.rowIndex };
     sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
-    // Keep orderName in sync if orderId changed
-    if (data.orderId) {
-      const ord = state.orders.find(o => String(o.id) === data.orderId.trim());
-      if (ord) data.orderName = ord.name;
+    // Convert orderNum → orderId
+    const orderNumVal = (data.orderNum || '').trim();
+    delete data.orderNum;
+    if (orderNumVal) {
+      const ord = state.orders.find(o => String(o.rowNum) === orderNumVal);
+      if (ord) { data.orderId = ord.id; data.orderName = ord.name; }
+      else { data.orderId = orderNumVal; }
+    } else {
+      data.orderId = '';
     }
     await apiPost(data);
     await refreshPurchases();
