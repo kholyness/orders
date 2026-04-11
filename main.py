@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import re
 from datetime import datetime, timedelta
@@ -13,6 +14,9 @@ import sheets
 from auth import ALLOWED_CHAT_IDS, generate_token, validate_init_data, validate_token
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv("TOKEN", "")
 MY_CHAT_ID = os.getenv("MY_CHAT_ID", "")
@@ -476,9 +480,11 @@ _pending_photo: dict[str, str] = {}  # str(chat_id) -> order_id
 async def handle_bot_message(msg: dict):
     chat_id = msg["chat"]["id"]
     if str(chat_id) not in ALLOWED_CHAT_IDS:
+        logger.warning("ignored message from unknown chat_id=%s", chat_id)
         return
     text = (msg.get("text") or msg.get("caption") or "").strip()
     photo = msg.get("photo")
+    logger.info("bot msg chat=%s text=%r has_photo=%s", chat_id, text, bool(photo))
 
     try:
         if text in ("/new", "/start"):
@@ -550,6 +556,7 @@ async def handle_bot_message(msg: dict):
                 return
 
     except Exception as e:
+        logger.exception("unhandled error in handle_bot_message chat=%s", chat_id)
         await send_message(chat_id, f"⚠️ Ошибка: {e}")
 
 
@@ -572,6 +579,11 @@ async def scheduled_tasks_loop():
 
 # ── Bot polling loop ───────────────────────────────────────────────────────────
 
+def _task_error_handler(task: asyncio.Task) -> None:
+    if not task.cancelled() and task.exception():
+        logger.exception("unhandled exception in bot task", exc_info=task.exception())
+
+
 async def bot_polling_loop():
     offset = 0
     async with httpx.AsyncClient(timeout=40) as client:
@@ -584,6 +596,8 @@ async def bot_polling_loop():
                 for update in resp.json().get("result", []):
                     offset = update["update_id"] + 1
                     if msg := update.get("message"):
-                        asyncio.create_task(handle_bot_message(msg))
+                        task = asyncio.create_task(handle_bot_message(msg))
+                        task.add_done_callback(_task_error_handler)
             except Exception:
+                logger.exception("bot polling error, retrying in 5s")
                 await asyncio.sleep(5)
