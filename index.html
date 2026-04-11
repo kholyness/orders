@@ -456,7 +456,7 @@ function dmyToYmd(d) {
 // ── Config ───────────────────────────────────────────────────────────────────
 const APP_VERSION = '1.2.0';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
-const BOT_USERNAME = 'YourBotUsername'; // Telegram bot @username without @
+const BOT_USERNAME = 'YourBotUsername'; // REQUIRED: replace before deploy — Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['Получен','В работе','Очередь','Пауза','Готово'];
 
@@ -739,7 +739,7 @@ function openOrderDetail(id, source) {
 }
 
 function addPhoto(orderId) {
-  tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?text=${orderId}`);
+  tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?text=${encodeURIComponent(orderId)}`);
 }
 
 function renderOrderDetail(order) {
@@ -774,8 +774,8 @@ function renderOrderDetail(order) {
     ${f('Комментарий клиента', 'comment', order.comment)}
     ${f('Заметка', 'note', order.note)}
     <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
-    <div style="margin-bottom:16px">
-      <button class="btn-secondary" style="width:100%" onclick="addPhoto('${order.id}')">📸 Добавить фото</button>
+    <div class="field-group">
+      <button class="btn-secondary" style="width:100%" id="btn-add-photo">📸 Добавить фото</button>
     </div>
     <button class="btn-primary" id="btn-save" style="margin-top:8px">Сохранить</button>
     ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
@@ -818,6 +818,9 @@ function renderOrderDetail(order) {
     closeSheet();
     renderOrders();
   };
+
+  const btnPhoto = sheetContent.querySelector('#btn-add-photo');
+  if (btnPhoto) btnPhoto.addEventListener('click', () => addPhoto(order.id));
 }
 
 // ── NEW ORDER FORM ────────────────────────────────────────────────────────────
