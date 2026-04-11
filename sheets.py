@@ -59,7 +59,13 @@ def _get_archive_sync() -> list:
 
 
 def _count_orders_sync() -> int:
-    return max(0, len(_get_ws("Actual").get_all_values()) - 1)
+    nums = []
+    for sheet_name in ("Actual", "Archive"):
+        rows = _get_ws(sheet_name).get_all_values()
+        for row in rows[1:]:
+            if row and row[0].strip().isdigit():
+                nums.append(int(row[0].strip()))
+    return max(nums) if nums else 0
 
 
 def _find_order_row_sync(order_id: str, sheet_name: str = "Actual"):
