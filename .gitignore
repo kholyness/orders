@@ -9,3 +9,8 @@ claude.local.md
 docs/.DS_Store
 docs/superpowers/.DS_Store
 .claude/settings.local.json
+.venv/
+__pycache__/
+*.pyc
+uploads/
+orders.db
