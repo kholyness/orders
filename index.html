@@ -750,12 +750,9 @@ function renderOrderDetail(order) {
     `<div class="field-group"><div class="field-label">${label}</div><input class="field-input" type="${type}" name="${name}" value="${esc(value || '')}"></div>`;
 
   const html = `
-    <div class="sheet-title">#${order.id} ${esc(order.name) || ''}</div>
+    <div class="sheet-title">#${order.rowNum} ${esc(order.name) || ''}</div>
     ${f('Имя', 'name', order.name)}
-    ${f('Username', 'username', order.username)}
     ${f('Изделие', 'item', order.item)}
-    ${f('Артикул', 'article', order.article)}
-    <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model">${modelOptions}</select></div>
     <div class="field-group">
       <div class="field-label">Тип</div>
       <div class="type-toggle">
