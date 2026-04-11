@@ -112,6 +112,21 @@
       margin: 12px 0 6px;
     }
     .section-header:first-child { margin-top: 0; }
+    .section-header-collapsible {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .section-chevron {
+      display: inline-block;
+      font-size: 10px;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+    .section-chevron.collapsed { transform: rotate(-90deg); }
 
     /* ── Search + New order row ── */
     .orders-toolbar {
@@ -498,7 +513,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
@@ -512,6 +527,7 @@ document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── State ────────────────────────────────────────────────────────────────────
 const state = { orders: [], archive: [], purchases: [], activeTab: 'orders' };
+const collapsedSections = new Set();
 
 
 // ── API ──────────────────────────────────────────────────────────────────────
@@ -724,24 +740,27 @@ function renderOrders() {
     const list = grouped[status];
     if (!list.length) return;
 
+    const isCollapsed = collapsedSections.has(status);
     html += `<div class="status-section" data-status="${status}">`;
-    html += `<div class="section-header">${status} <span style="color:var(--hint);font-weight:400;letter-spacing:0">(${list.length})</span></div>`;
+    html += `<div class="section-header section-header-collapsible" data-collapse-status="${status}"><span class="section-chevron${isCollapsed ? ' collapsed' : ''}">▼</span>${status} <span style="color:var(--hint);font-weight:400;letter-spacing:0;text-transform:none">(${list.length})</span></div>`;
 
-    list.forEach(o => {
-      const orderTitle = esc(o.item || o.model) || '—';
-      const tgUsername = o.username || '';
-      const clientName = esc(o.name || '') || '—';
-      html += `
-        <div class="card" data-id="${o.id}">
-          <div class="card-main">
-            <div class="card-id">#${o.rowNum}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}${o.note ? ' · <span style="color:var(--accent)">●</span>' : ''}</div>
-            <div class="card-title">${orderTitle}</div>
-            <div class="card-subtitle">${clientName}</div>
-          </div>
-          <div class="msg-btn-wrap">${tgUsername ? `<button class="msg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}</div>
-          <div class="status-badge ${statusBadgeClass(o.status)}" data-badge-id="${o.id}">${esc(o.status || 'Очередь')}</div>
-        </div>`;
-    });
+    if (!isCollapsed) {
+      list.forEach(o => {
+        const orderTitle = esc(o.item || o.model) || '—';
+        const tgUsername = o.username || '';
+        const clientName = esc(o.name || '') || '—';
+        html += `
+          <div class="card" data-id="${o.id}">
+            <div class="card-main">
+              <div class="card-id">#${o.rowNum}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}${o.note ? ' · <span style="color:var(--accent)">●</span>' : ''}</div>
+              <div class="card-title">${orderTitle}</div>
+              <div class="card-subtitle">${clientName}</div>
+            </div>
+            <div class="msg-btn-wrap">${tgUsername ? `<button class="msg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}</div>
+            <div class="status-badge ${statusBadgeClass(o.status)}" data-badge-id="${o.id}">${esc(o.status || 'Очередь')}</div>
+          </div>`;
+      });
+    }
 
     html += `</div>`;
   });
@@ -751,6 +770,14 @@ function renderOrders() {
   bindSearch();
   const si = el.querySelector('#order-search');
   if (searchFocused) { si.focus(); si.setSelectionRange(si.value.length, si.value.length); }
+  el.querySelectorAll('.section-header-collapsible').forEach(header => {
+    header.addEventListener('click', () => {
+      const status = header.dataset.collapseStatus;
+      if (collapsedSections.has(status)) collapsedSections.delete(status);
+      else collapsedSections.add(status);
+      renderOrders();
+    });
+  });
   el.querySelectorAll('.status-badge[data-badge-id]').forEach(badge => {
     badge.addEventListener('click', e => {
       const order = state.orders.find(o => String(o.id) === String(badge.dataset.badgeId));
