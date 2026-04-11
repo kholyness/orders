@@ -27,7 +27,8 @@ _ORDER_COLS = """
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(f"CREATE TABLE IF NOT EXISTS orders ({_ORDER_COLS})")
-        await db.execute(f"CREATE TABLE IF NOT EXISTS archive ({_ORDER_COLS.replace(\"DEFAULT 'Очередь'\", \"DEFAULT 'Отдано'\")})")
+        archive_cols = _ORDER_COLS.replace("DEFAULT 'Очередь'", "DEFAULT 'Отдано'")
+        await db.execute(f"CREATE TABLE IF NOT EXISTS archive ({archive_cols})")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS purchases (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
