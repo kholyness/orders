@@ -105,12 +105,15 @@
     .card-purchases { display: flex; flex-direction: column; gap: 3px; }
     .card-purchase-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
     .card-purchase-item.bought { color: var(--hint); text-decoration: line-through; }
-    .card-purchase-item.bought .cp-dot { opacity: 0.4; }
-    .cp-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
-    .cp-dot.done { background: var(--hint); }
+    .cp-cb { width: 13px; height: 13px; border-radius: 3px; border: 1.5px solid var(--hint); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; color: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.12s, border-color 0.12s; }
+    .cp-cb.done { background: var(--accent); border-color: var(--accent); color: #fff; }
     .cp-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cp-qty { color: var(--hint); flex-shrink: 0; font-size: 11px; }
-    .card-note-icon { color: var(--hint); margin-top: 5px; display: flex; align-items: center; opacity: 0.6; }
+    .card-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+    .card-note-icon { color: var(--hint); display: flex; align-items: center; opacity: 0.6; }
+    .card-tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
+    .card-tag.need { background: rgba(255,149,0,0.15); color: #d97700; }
+    .card-tag.have { background: rgba(45,138,78,0.15); color: #2d8a4e; }
 
     /* ── Section headers ── */
     .section-header {
@@ -523,7 +526,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.3.5';
+const APP_VERSION = '1.3.6';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
@@ -768,10 +771,12 @@ function renderOrders() {
             <hr class="card-divider">
             <div class="card-purchases">${orderPurchases.map(p => {
               const bought = p.status === 'Куплено';
-              return `<div class="card-purchase-item${bought ? ' bought' : ''}"><span class="cp-dot${bought ? ' done' : ''}"></span><span class="cp-name">${esc(p.item || '')}</span>${p.quantity && p.quantity !== '1' ? `<span class="cp-qty">×${esc(String(p.quantity))}</span>` : ''}</div>`;
+              return `<div class="card-purchase-item${bought ? ' bought' : ''}"><span class="cp-cb${bought ? ' done' : ''}" data-card-cb="${p.rowIndex}">✓</span><span class="cp-name">${esc(p.item || '')}</span>${p.quantity && p.quantity !== '1' ? `<span class="cp-qty">×${esc(String(p.quantity))}</span>` : ''}</div>`;
             }).join('')}</div>` : '';
-        const noteIconHtml = o.note ? `
-            <div class="card-note-icon"><svg width="13" height="10" viewBox="0 0 13 10" fill="currentColor"><rect width="13" height="1.5" rx="0.75"/><rect y="4.25" width="9" height="1.5" rx="0.75"/><rect y="8.5" width="11" height="1.5" rx="0.75"/></svg></div>` : '';
+        const noteIcon = o.note ? `<div class="card-note-icon"><svg width="13" height="10" viewBox="0 0 13 10" fill="currentColor"><rect width="13" height="1.5" rx="0.75"/><rect y="4.25" width="9" height="1.5" rx="0.75"/><rect y="8.5" width="11" height="1.5" rx="0.75"/></svg></div>` : '';
+        const hasUnbought = orderPurchases.some(p => p.status !== 'Куплено');
+        const stockTag = orderPurchases.length ? `<span class="card-tag ${hasUnbought ? 'need' : 'have'}">${hasUnbought ? 'Заказ' : 'Наличие'}</span>` : '';
+        const metaHtml = (noteIcon || stockTag) ? `<div class="card-meta">${noteIcon}${stockTag}</div>` : '';
         html += `
           <div class="card" data-id="${o.id}">
             <div class="card-top">
@@ -782,7 +787,7 @@ function renderOrders() {
               </div>
               <div class="msg-btn-wrap">${tgUsername ? `<button class="msg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}</div>
               <div class="status-badge ${statusBadgeClass(o.status)}" data-badge-id="${o.id}">${esc(o.status || 'Очередь')}</div>
-            </div>${purchasesHtml}${noteIconHtml}
+            </div>${metaHtml}${purchasesHtml}
           </div>`;
       });
     }
@@ -818,10 +823,24 @@ function renderOrders() {
     });
   });
 
+  el.querySelectorAll('[data-card-cb]').forEach(cb => {
+    cb.addEventListener('click', async e => {
+      e.stopPropagation();
+      const row = cb.dataset.cardCb;
+      const p = state.purchases.find(p => String(p.rowIndex) === String(row));
+      if (!p) return;
+      if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      p.status = p.status === 'Куплено' ? 'Купить' : 'Куплено';
+      renderOrders();
+      await apiPost({ action: 'togglePurchaseStatus', rowIndex: p.rowIndex });
+    });
+  });
+
   el.querySelectorAll('.card[data-id]').forEach(card => {
     card.addEventListener('click', e => {
       if (e.target.closest('.status-badge')) return;
       if (e.target.closest('.msg-btn')) return;
+      if (e.target.closest('[data-card-cb]')) return;
       openOrderDetail(card.dataset.id, state.orders);
     });
   });
