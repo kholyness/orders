@@ -64,7 +64,9 @@ Bot runs as an async polling loop inside the same FastAPI process (`bot_polling_
 
 Text status updates: `в работе <id>`, `пауза <id>`, `готово <id>`, `отдано <id>` (moves to archive)
 
-Photo handling: send a photo with caption matching `^\d+$` or `^\d{4}-\d{3}$` — saves to that order's uploads folder. Bot opens from Mini App via `addPhoto(order.id)` which pre-fills the order ID (`DDMM-XXX`) as caption.
+Photo handling — two flows supported:
+- **One-step:** send a photo with caption matching `^\d+$` or `^\d{4}-\d{3}$` — saves immediately.
+- **Two-step (Mini App flow):** Mini App calls `addPhoto(order.id)` → opens bot chat via `tg.openTelegramLink` with order ID pre-filled as text (`?text=DDMM-XXX`). User taps Send → bot stores the order ID in `_pending_photo` (in-memory dict) and replies asking for a photo → user sends photo (no caption needed) → bot saves it. Note: `_pending_photo` is not persisted — state is lost on server restart.
 
 ### Authentication (auth.py)
 - `validate_init_data(init_data)` — verifies Telegram HMAC-SHA256 signature and checks user ID against `ALLOWED_CHAT_IDS` (from env var)
@@ -83,7 +85,7 @@ Photo handling: send a photo with caption matching `^\d+$` or `^\d{4}-\d{3}$` �
 - **Order detail** opens on card tap (not on status badge tap)
 - **Edit form** includes a native date picker for the deadline field
 - **Note indicator** shown on card when the order has a note
-- **"Добавить фото"** button opens the bot chat via `tg.openTelegramLink` with the order ID pre-filled — user then sends a photo with that caption
+- **"Добавить фото"** button calls `addPhoto(order.id)` → opens the bot chat via `tg.openTelegramLink` with the order ID pre-filled in the text box (`?text=DDMM-XXX`). User taps Send, bot asks for a photo, user sends it. See two-step photo flow in the Bot section above.
 
 ### Key Constants (index.html)
 ```js
@@ -102,6 +104,22 @@ SHEET_ID=          # Google Sheets spreadsheet ID
 GOOGLE_CREDS_FILE= # Path to service account credentials JSON (default: credentials.json)
 UPLOAD_DIR=        # Local folder for order photos (default: uploads)
 ```
+
+## Logging & Debugging
+
+`main.py` uses Python's standard `logging` module (`logging.basicConfig(level=INFO)`). Logs are written to stdout and captured by systemd.
+
+To watch logs live on the server:
+```bash
+journalctl -u moroska -f
+```
+
+Each incoming bot message is logged at INFO level:
+```
+2026-04-11 12:00:01 INFO bot msg chat=123456 text='0411-123' has_photo=False
+```
+
+Messages from unknown `chat_id`s are logged at WARNING. Unhandled exceptions include a full traceback via `logger.exception`.
 
 ## Scheduled Tasks (main.py)
 Run daily at 09:00 inside `scheduled_tasks_loop()`:

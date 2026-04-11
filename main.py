@@ -593,6 +593,14 @@ async def bot_polling_loop():
                     f"https://api.telegram.org/bot{TOKEN}/getUpdates",
                     params={"offset": offset, "timeout": 30},
                 )
+                if resp.status_code == 409:
+                    logger.warning("bot polling 409 Conflict — another instance is running, retrying in 5s")
+                    await asyncio.sleep(5)
+                    continue
+                if resp.status_code != 200:
+                    logger.warning("bot polling HTTP %s, retrying in 5s", resp.status_code)
+                    await asyncio.sleep(5)
+                    continue
                 for update in resp.json().get("result", []):
                     offset = update["update_id"] + 1
                     if msg := update.get("message"):
