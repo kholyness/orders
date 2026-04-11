@@ -4,21 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Moroska Orders is a Telegram Mini App for managing craft orders. It consists of two parts:
+Moroska Orders is a Telegram Mini App for managing craft orders. It consists of:
 
-1. **`index.html`** — the frontend Mini App (single HTML file, vanilla JS, no build step)
-2. **`google-apps-script.js`** — the backend deployed as a Google Apps Script Web App (contains real tokens; not committed)
-3. **`google-apps-script-clear.js`** — public version of the backend with placeholder tokens (`YOUR_TELEGRAM_BOT_TOKEN`, etc.), safe to commit
+1. **`index.html`** — frontend Mini App (single HTML file, vanilla JS, no build step)
+2. **`main.py`** — Python/FastAPI backend: REST API for the Mini App + Telegram bot (long polling) + scheduled tasks
+3. **`sheets.py`** — async wrappers around gspread for reading/writing Google Sheets
+4. **`auth.py`** — Telegram initData HMAC validation + hourly token generation for write auth
+5. **`db.py`** + **`migrate.py`** — legacy SQLite schema and one-time migration tool (no longer used in production)
 
-There is no package manager, no build system, and no tests. Development is purely editing these files.
+There is no package manager or build system for the frontend. Backend dependencies: `fastapi`, `uvicorn[standard]`, `httpx`, `python-dotenv`, `gspread`, `google-auth`.
 
 ## Deployment
 
 **Frontend:** `index.html` is served as a Telegram Mini App. To update, modify the file and redeploy via your Telegram bot configuration.
 
-**Backend:** `google-apps-script.js` must be manually copied into the Google Apps Script editor at script.google.com and deployed as a new Web App version. The deployed URL is hardcoded in `index.html` as `SCRIPT_URL`.
-
-After redeploying the Apps Script, update `SCRIPT_URL` in `index.html` if the URL changes.
+**Backend:** Runs as a systemd service (`deploy/moroska.service`) behind nginx (`deploy/nginx.conf`). To deploy: push changes, restart the service. The deployed URL is hardcoded in `index.html` as `SCRIPT_URL`.
 
 ## Versioning
 
@@ -28,72 +28,83 @@ Use simple semver: `1.0.0` → `1.0.1` for patches, `1.1.0` for new features. No
 
 ## Architecture
 
-### Data Layer (Google Sheets)
+### Data Layer (Google Sheets via gspread)
 - **`Actual` sheet** — active orders (17 columns: №, ID заказа, Дата создания, Имя, Username, ID клиента, Изделие, Модель, Артикул, Тип, Детали, Цена, Срок, Статус, Фото, Заметка, Комментарий)
 - **`Archive` sheet** — completed orders (same schema, Статус = 'Отдано')
-- **`Purchase` sheet** — purchase list (8 columns: date, item, quantity, price, orderId, orderName, status, note); created automatically on first use; status values: `Купить` / `Куплено`
+- **`Purchase` sheet** — purchase list (8 columns: date, item, quantity, price, orderId, orderName, status, note); status values: `Купить` / `Куплено`
 - **ID заказа** format: `DDMM-XXX` where DDMM = creation date (day+month), XXX = last 3 digits of client Telegram ID (or row № padded to 3 if no client ID)
 - **№** — sequential row counter (separate from ID заказа)
 - **Заметка** — master's internal notes; **Комментарий** — client's comment from the shop bot
-- Each order gets a Google Drive folder created automatically on creation; `photo` column stores the folder URL
+- **Фото** — local folder path on the server (`uploads/<order_id>/`); photos are saved there by the bot
 
-### Backend API (Google Apps Script)
-- `doGet(e)` — handles both read requests and write actions (sent as GET params)
-  - Read: `getOrders`, `getArchive`, `getStats`, `getPurchases`
-  - Write (routed to `handleMiniAppPost`): `createOrder`, `updateOrder`, `updateStatus`, `archiveOrder`, `createPurchase`, `updatePurchase`, `updatePurchaseStatus`
-- `doPost(e)` — dual-purpose: routes to `handleMiniAppPost` when `data.action` is present, otherwise handles Telegram Bot webhook
-- Mini App write actions:
-  - Orders: `createOrder`, `updateOrder`, `updateStatus`, `archiveOrder`
-    - `updateStatus` with `status = 'Отдано'` automatically calls `moveToArchive`
-  - Purchases: `createPurchase`, `updatePurchase`, `deletePurchase`, `togglePurchaseStatus`
-- Telegram bot commands: `/new`, `/work`, `/buy`, `/money`, `/week`, `/models [month]`
-- Telegram status updates: `в работе 42`, `пауза 42`, `готово 42`, `отдано 42` (moves to archive)
-- Telegram photo handling: sending a photo with a plain order number saves it to that order's Drive folder
+### Backend API (main.py — FastAPI)
 
-### Authentication (Mini App)
-All Mini App write requests go through `validateInitData(data.initData)`:
-- Verifies the Telegram `initData` HMAC-SHA256 signature using the bot TOKEN
-- Additionally checks that the user ID in `initData` is in `ALLOWED_CHAT_IDS` array (whitelist; by default contains only `MY_CHAT_ID`)
-- Returns `{ error: 'Unauthorized' }` on failure
+Single `GET /` endpoint, action selected via `?action=` query param.
 
-### Frontend State
+**Auth flow:**
+1. Mini App calls `?action=auth&initData=<telegram_init_data>` — backend validates HMAC signature and user whitelist, returns a short-lived token (valid ~2 hours)
+2. Write actions use `?token=<token>` — validated via `validate_token()` in `auth.py`
+
+**Read actions** (no auth):
+- `getOrders`, `getArchive`, `getStats`, `getPurchases`
+
+**Write actions** (require `token`):
+- Orders: `createOrder`, `updateOrder`, `updateStatus`, `archiveOrder`
+  - `updateStatus` with `status = 'Отдано'` automatically calls `move_to_archive`
+- Purchases: `createPurchase`, `updatePurchase`, `deletePurchase`, `togglePurchaseStatus`
+
+### Telegram Bot (main.py — long polling)
+Bot runs as an async polling loop inside the same FastAPI process (`bot_polling_loop()`). Commands:
+- `/new` or `/start` — prints a new-order template
+- `/work` — active orders by status
+- `/buy` — orders where details contain "купить" or "нет в наличии"
+- `/money` — total income from Archive
+- `/week` — orders with deadlines within 7 days
+- `/models [month]` — model popularity stats, optionally filtered by month (e.g. `/models апр`)
+
+Text status updates: `в работе <id>`, `пауза <id>`, `готово <id>`, `отдано <id>` (moves to archive)
+
+Photo handling: send a photo with caption matching `^\d+$` or `^\d{4}-\d{3}$` — saves to that order's uploads folder. Bot opens from Mini App via `addPhoto(order.id)` which pre-fills the order ID (`DDMM-XXX`) as caption.
+
+### Authentication (auth.py)
+- `validate_init_data(init_data)` — verifies Telegram HMAC-SHA256 signature and checks user ID against `ALLOWED_CHAT_IDS` (from env var)
+- `generate_token()` / `validate_token(token)` — HMAC-based hourly sliding window token (valid for current and previous hour)
+
+### Frontend State (index.html)
 - Single global `state` object: `{ orders: [], archive: [], activeTab: 'orders' }`
 - Three tabs: Orders (📋), Stats (📊), Clients (👤)
 - Bottom sheet pattern for detail/edit views
-- All UI is rendered imperatively via `innerHTML`
+- All UI rendered imperatively via `innerHTML`
 - Status changes trigger haptic feedback via `tg.HapticFeedback`
+- On load: calls `auth` action with `initData`, stores token in memory for subsequent write calls
 
 ### Key UI Interactions
 - **Status badge** on each order card is tappable — opens a popup to change status directly from the list
 - **Order detail** opens on card tap (not on status badge tap)
 - **Edit form** includes a native date picker for the deadline field
 - **Note indicator** shown on card when the order has a note
+- **"Добавить фото"** button opens the bot chat via `tg.openTelegramLink` with the order ID pre-filled — user then sends a photo with that caption
 
 ### Key Constants (index.html)
 ```js
-const SCRIPT_URL = '...'; // Google Apps Script deployed URL
+const SCRIPT_URL = '...'; // Backend URL (FastAPI server)
+const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['В работе','Очередь','Пауза','Готово']; // Display order
 ```
 
-### Key Constants (google-apps-script.js)
-```js
-const TOKEN = '...';            // Telegram Bot token
-const SHEET_ID = ...;           // Google Sheets ID (auto-detected via getActiveSpreadsheet)
-const PARENT_FOLDER_ID = '...'; // Google Drive folder for order subfolders
-const MY_CHAT_ID = '...';           // Owner's chat ID — used for auth and scheduled reports
-const ALLOWED_CHAT_IDS = [MY_CHAT_ID]; // Whitelist for Mini App access; add more IDs as needed
+### Key Env Vars (.env)
+```
+TOKEN=             # Telegram Bot token
+MY_CHAT_ID=        # Owner's chat ID — used for scheduled reports
+ALLOWED_CHAT_IDS=  # Comma-separated chat IDs allowed to use the Mini App and bot
+SHEET_ID=          # Google Sheets spreadsheet ID
+GOOGLE_CREDS_FILE= # Path to service account credentials JSON (default: credentials.json)
+UPLOAD_DIR=        # Local folder for order photos (default: uploads)
 ```
 
-### Bot Report Functions
-- `/work` — lists active orders by status (В работе / Очередь / Готово)
-- `/buy` — lists orders where details contain "купить" or "нет в наличии"
-- `/money` — total income from the Archive sheet
-- `/week` — orders with deadlines within the next 7 days
-- `/models [month]` — model popularity stats, optionally filtered by month (e.g. `/models апр`)
-
-## Scheduled Triggers (Apps Script)
-- `sendMondayReport()` — weekly work summary (configure in Apps Script triggers)
-- `sendMonthlyStats()` — monthly income summary (configure in Apps Script triggers)
-- `sendDeadlineReminder()` — sends a message if any order has a deadline exactly 7 days from today (configure in Apps Script triggers)
-- `setWebhook()` — run once to register Telegram webhook URL
+## Scheduled Tasks (main.py)
+Run daily at 09:00 inside `scheduled_tasks_loop()`:
+- Monday: `send_monday_report()` — work summary + upcoming deadlines
+- Daily: `send_deadline_reminder()` — alerts if any order has a deadline exactly 7 days away
+- 1st of month: `send_monthly_stats()` — archive count + total income

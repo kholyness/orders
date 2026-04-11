@@ -469,6 +469,10 @@ async def send_monthly_stats():
 
 # ── Bot message handler ────────────────────────────────────────────────────────
 
+# In-memory state: waiting for a photo after user sent an order ID
+_pending_photo: dict[str, str] = {}  # str(chat_id) -> order_id
+
+
 async def handle_bot_message(msg: dict):
     chat_id = msg["chat"]["id"]
     if str(chat_id) not in ALLOWED_CHAT_IDS:
@@ -522,11 +526,28 @@ async def handle_bot_message(msg: dict):
             await add_new_order_from_bot(chat_id, text, photo)
             return
 
+        # Photo + order ID in caption — one-step flow
         if re.match(r"^\d+$|^\d{4}-\d{3}$", text) and photo:
+            _pending_photo.pop(str(chat_id), None)
             ok = await save_photo_to_order(text, photo, "Процесс")
             await send_message(chat_id,
                 f"📸 Фото сохранено в <b>#{text}</b>" if ok else "❌ Не найден.")
             return
+
+        # Order ID as plain text (no photo) — remember it, ask for photo
+        if re.match(r"^\d+$|^\d{4}-\d{3}$", text) and not photo:
+            _pending_photo[str(chat_id)] = text
+            await send_message(chat_id, f"📸 Теперь отправь фото для заказа <b>#{text}</b>")
+            return
+
+        # Photo arrives after a pending order ID (two-step flow from Mini App)
+        if photo:
+            order_id = _pending_photo.pop(str(chat_id), None)
+            if order_id:
+                ok = await save_photo_to_order(order_id, photo, "Процесс")
+                await send_message(chat_id,
+                    f"📸 Фото сохранено в <b>#{order_id}</b>" if ok else "❌ Не найден.")
+                return
 
     except Exception as e:
         await send_message(chat_id, f"⚠️ Ошибка: {e}")
