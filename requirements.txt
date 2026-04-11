@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
-aiosqlite
 httpx
 python-dotenv
+gspread
+google-auth
