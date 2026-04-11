@@ -1,0 +1,13 @@
+[Unit]
+Description=Datasette GUI for Moroska orders.db
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/moroska
+ExecStart=/home/ubuntu/moroska/.venv/bin/datasette /home/ubuntu/moroska/orders.db --host 127.0.0.1 --port 8001
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
