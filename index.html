@@ -275,23 +275,36 @@
     .field-textarea { resize: none; min-height: 76px; }
 
     /* ── Type toggle ── */
-    .type-toggle { display: flex; gap: 8px; }
-    .type-option {
-      flex: 1; padding: 11px; text-align: center;
+    .sheet-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .type-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       background: var(--bg-secondary);
-      border: 2px solid transparent;
-      border-radius: 10px;
+      border-radius: 20px;
+      padding: 5px 10px 5px 8px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
-      transition: all 0.15s;
+      color: var(--hint);
+      flex-shrink: 0;
       -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s;
+      user-select: none;
     }
-    .type-option.selected {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: var(--bg);
+    .type-pill-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--hint);
+      transition: background 0.15s;
+      flex-shrink: 0;
     }
+    .type-pill.is-nalichie .type-pill-dot { background: var(--accent); }
+    .type-pill.is-nalichie { color: var(--accent); }
 
     /* ── Stats ── */
     .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
@@ -353,7 +366,7 @@
     /* ── Misc ── */
     .empty { text-align: center; color: var(--hint); padding: 48px 16px; font-size: 15px; }
     .loading { text-align: center; padding: 48px; color: var(--hint); font-size: 15px; }
-    .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+    .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; min-height: 28px; }
     .sheet-subtitle { font-size: 13px; color: var(--hint); margin-top: -12px; margin-bottom: 16px; }
 
     /* ── Status badge ── */
@@ -454,7 +467,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
@@ -750,17 +763,16 @@ function renderOrderDetail(order) {
     `<div class="field-group"><div class="field-label">${label}</div><input class="field-input" type="${type}" name="${name}" value="${esc(value || '')}"></div>`;
 
   const html = `
-    <div class="sheet-title">#${order.rowNum} ${esc(order.name) || ''}</div>
+    <div class="sheet-title">
+      <span>#${order.rowNum} ${esc(order.name) || ''}</span>
+      <div class="type-pill${order.type === 'Наличие' ? ' is-nalichie' : ''}" id="type-pill">
+        <div class="type-pill-dot"></div>
+        <span class="type-pill-label">${order.type === 'Наличие' ? 'Наличие' : 'Заказ'}</span>
+      </div>
+    </div>
+    <input type="hidden" name="type" value="${order.type || 'Заказ'}">
     ${f('Имя', 'name', order.name)}
     ${f('Изделие', 'item', order.item)}
-    <div class="field-group">
-      <div class="field-label">Тип</div>
-      <div class="type-toggle">
-        <div class="type-option${order.type !== 'Наличие' ? ' selected' : ''}" data-val="Заказ">Заказ</div>
-        <div class="type-option${order.type === 'Наличие' ? ' selected' : ''}" data-val="Наличие">Наличие</div>
-      </div>
-      <input type="hidden" name="type" value="${order.type || 'Заказ'}">
-    </div>
     ${f('Детали', 'details', order.details)}
     ${f('Цена', 'price', order.price, 'number')}
     <div class="field-group"><div class="field-label">Срок</div><input class="field-input" type="date" name="deadline" value="${esc(dmyToYmd(order.deadline || ''))}"></div>
@@ -773,13 +785,14 @@ function renderOrderDetail(order) {
 
   openSheet(html);
 
-  sheetContent.querySelectorAll('.type-option').forEach(opt => {
-    opt.onclick = () => {
-      sheetContent.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
-      opt.classList.add('selected');
-      sheetContent.querySelector('input[name="type"]').value = opt.dataset.val;
-    };
-  });
+  const pill = sheetContent.querySelector('#type-pill');
+  pill.onclick = () => {
+    const inp = sheetContent.querySelector('input[name="type"]');
+    const isNalichie = inp.value === 'Наличие';
+    inp.value = isNalichie ? 'Заказ' : 'Наличие';
+    pill.classList.toggle('is-nalichie', !isNalichie);
+    pill.querySelector('.type-pill-label').textContent = isNalichie ? 'Заказ' : 'Наличие';
+  };
 
   document.getElementById('btn-save').onclick = async () => {
     const btn = document.getElementById('btn-save');
@@ -818,7 +831,14 @@ function openNewOrderForm() {
     .join('');
 
   openSheet(`
-    <div class="sheet-title">Новый заказ</div>
+    <div class="sheet-title">
+      <span>Новый заказ</span>
+      <div class="type-pill" id="type-pill">
+        <div class="type-pill-dot"></div>
+        <span class="type-pill-label">Заказ</span>
+      </div>
+    </div>
+    <input type="hidden" name="type" value="Заказ">
     <div class="field-group"><div class="field-label">Имя</div><input class="field-input" name="name" placeholder="Имя клиента"></div>
     <div class="field-group"><div class="field-label">Username</div><input class="field-input" name="username" placeholder="@username (необязательно)"></div>
     <div class="field-group"><div class="field-label">Изделие</div><input class="field-input" name="item" placeholder="Название изделия"></div>
@@ -826,14 +846,6 @@ function openNewOrderForm() {
     <div class="field-group">
       <div class="field-label">Модель</div>
       <select class="field-select" name="model">${modelOptions}</select>
-    </div>
-    <div class="field-group">
-      <div class="field-label">Тип</div>
-      <div class="type-toggle">
-        <div class="type-option selected" data-val="Заказ">Заказ</div>
-        <div class="type-option" data-val="Наличие">Наличие</div>
-      </div>
-      <input type="hidden" name="type" value="Заказ">
     </div>
     <div class="field-group"><div class="field-label">Детали</div><textarea class="field-textarea" name="details" placeholder="Размер, цвет, материал..."></textarea></div>
     <div class="field-group"><div class="field-label">Цена (RSD)</div><input class="field-input" name="price" type="number" placeholder="0"></div>
@@ -843,13 +855,14 @@ function openNewOrderForm() {
     <button class="btn-secondary" id="btn-cancel-new">Отмена</button>
   `);
 
-  sheetContent.querySelectorAll('.type-option').forEach(opt => {
-    opt.onclick = () => {
-      sheetContent.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
-      opt.classList.add('selected');
-      sheetContent.querySelector('input[name="type"]').value = opt.dataset.val;
-    };
-  });
+  const pill2 = sheetContent.querySelector('#type-pill');
+  pill2.onclick = () => {
+    const inp = sheetContent.querySelector('input[name="type"]');
+    const isNalichie = inp.value === 'Наличие';
+    inp.value = isNalichie ? 'Заказ' : 'Наличие';
+    pill2.classList.toggle('is-nalichie', !isNalichie);
+    pill2.querySelector('.type-pill-label').textContent = isNalichie ? 'Заказ' : 'Наличие';
+  };
 
   document.getElementById('btn-cancel-new').onclick = closeSheet;
 
