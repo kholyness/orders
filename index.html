@@ -526,7 +526,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.3.6';
+const APP_VERSION = '1.3.7';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
@@ -774,8 +774,8 @@ function renderOrders() {
               return `<div class="card-purchase-item${bought ? ' bought' : ''}"><span class="cp-cb${bought ? ' done' : ''}" data-card-cb="${p.rowIndex}">✓</span><span class="cp-name">${esc(p.item || '')}</span>${p.quantity && p.quantity !== '1' ? `<span class="cp-qty">×${esc(String(p.quantity))}</span>` : ''}</div>`;
             }).join('')}</div>` : '';
         const noteIcon = o.note ? `<div class="card-note-icon"><svg width="13" height="10" viewBox="0 0 13 10" fill="currentColor"><rect width="13" height="1.5" rx="0.75"/><rect y="4.25" width="9" height="1.5" rx="0.75"/><rect y="8.5" width="11" height="1.5" rx="0.75"/></svg></div>` : '';
-        const hasUnbought = orderPurchases.some(p => p.status !== 'Куплено');
-        const stockTag = orderPurchases.length ? `<span class="card-tag ${hasUnbought ? 'need' : 'have'}">${hasUnbought ? 'Заказ' : 'Наличие'}</span>` : '';
+        const isNalichie = o.type === 'Наличие';
+        const stockTag = `<span class="card-tag ${isNalichie ? 'have' : 'need'}">${isNalichie ? 'Наличие' : 'Заказ'}</span>`;
         const metaHtml = (noteIcon || stockTag) ? `<div class="card-meta">${noteIcon}${stockTag}</div>` : '';
         html += `
           <div class="card" data-id="${o.id}">
@@ -831,7 +831,9 @@ function renderOrders() {
       if (!p) return;
       if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
       p.status = p.status === 'Куплено' ? 'Купить' : 'Куплено';
-      renderOrders();
+      const bought = p.status === 'Куплено';
+      cb.classList.toggle('done', bought);
+      cb.closest('.card-purchase-item').classList.toggle('bought', bought);
       await apiPost({ action: 'togglePurchaseStatus', rowIndex: p.rowIndex });
     });
   });
