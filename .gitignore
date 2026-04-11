@@ -1,5 +1,9 @@
 google-apps-script.js
 .env
+credentials.json
+*-credentials.json
+*.json.key
+freewriting-*.json
 claude.local.md
 .DS_Store
 docs/.DS_Store
