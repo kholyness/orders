@@ -207,8 +207,15 @@ async def create_order(p: dict) -> dict:
     suffix = client_id[-3:] if len(client_id) >= 3 else str(row_num).zfill(3)
     order_id = f"{ddmm}-{suffix}"
 
-    photo_dir = os.path.join(UPLOAD_DIR, order_id)
-    os.makedirs(photo_dir, exist_ok=True)
+    if sheets.DRIVE_FOLDER_ID:
+        folder_id = await sheets.create_drive_folder(order_id)
+        photo_field = f"drive:{folder_id}"
+        folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
+    else:
+        photo_dir = os.path.join(UPLOAD_DIR, order_id)
+        os.makedirs(photo_dir, exist_ok=True)
+        photo_field = photo_dir
+        folder_url = photo_dir
 
     row = [
         str(row_num),
@@ -225,12 +232,12 @@ async def create_order(p: dict) -> dict:
         p.get("price", ""),
         p.get("deadline", ""),
         "Очередь",
-        photo_dir,
+        photo_field,
         "",
         p.get("comment", ""),
     ]
     await sheets.append_order(row)
-    return {"success": True, "id": order_id, "folderUrl": photo_dir}
+    return {"success": True, "id": order_id, "folderUrl": folder_url}
 
 
 async def update_order(p: dict) -> dict:
@@ -293,25 +300,35 @@ async def send_message(chat_id, text: str):
         )
 
 
-async def download_photo(file_id: str, dest_path: str):
+async def fetch_photo_bytes(file_id: str) -> bytes:
     async with httpx.AsyncClient() as client:
         r = await client.get(f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}")
         file_path = r.json()["result"]["file_path"]
-        photo_bytes = (await client.get(f"https://api.telegram.org/file/bot{TOKEN}/{file_path}")).content
+        return (await client.get(f"https://api.telegram.org/file/bot{TOKEN}/{file_path}")).content
+
+
+async def download_photo(file_id: str, dest_path: str):
+    content = await fetch_photo_bytes(file_id)
     with open(dest_path, "wb") as f:
-        f.write(photo_bytes)
+        f.write(content)
 
 
 async def save_photo_to_order(order_id: str, photo: list, prefix: str) -> bool:
     folder = await sheets.get_order_photo(order_id)
     if folder is None:
         return False
-    folder = folder or os.path.join(UPLOAD_DIR, order_id)
-    os.makedirs(folder, exist_ok=True)
     file_id = photo[-1]["file_id"]
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    dest = os.path.join(folder, f"{prefix}_{order_id}_{ts}.jpg")
-    await download_photo(file_id, dest)
+    filename = f"{prefix}_{order_id}_{ts}.jpg"
+
+    if folder and folder.startswith("drive:"):
+        drive_folder_id = folder[6:]
+        content = await fetch_photo_bytes(file_id)
+        await sheets.upload_photo_to_drive(drive_folder_id, filename, content)
+    else:
+        local_folder = folder or os.path.join(UPLOAD_DIR, order_id)
+        os.makedirs(local_folder, exist_ok=True)
+        await download_photo(file_id, os.path.join(local_folder, filename))
     return True
 
 

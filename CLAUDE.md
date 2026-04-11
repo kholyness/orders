@@ -102,7 +102,8 @@ MY_CHAT_ID=        # Owner's chat ID — used for scheduled reports
 ALLOWED_CHAT_IDS=  # Comma-separated chat IDs allowed to use the Mini App and bot
 SHEET_ID=          # Google Sheets spreadsheet ID
 GOOGLE_CREDS_FILE= # Path to service account credentials JSON (default: credentials.json)
-UPLOAD_DIR=        # Local folder for order photos (default: uploads)
+UPLOAD_DIR=        # Local folder for order photos (default: uploads, used when DRIVE_FOLDER_ID is not set)
+DRIVE_FOLDER_ID=   # Google Drive parent folder ID — if set, order subfolders and photos go to Drive instead of local disk
 ```
 
 ## Logging & Debugging
