@@ -10,7 +10,6 @@ Moroska Orders is a Telegram Mini App for managing craft orders. It consists of:
 2. **`main.py`** — Python/FastAPI backend: REST API for the Mini App + Telegram bot (long polling) + scheduled tasks
 3. **`sheets.py`** — async wrappers around gspread for reading/writing Google Sheets
 4. **`auth.py`** — Telegram initData HMAC validation + hourly token generation for write auth
-5. **`db.py`** + **`migrate.py`** — legacy SQLite schema and one-time migration tool (no longer used in production)
 
 There is no package manager or build system for the frontend. Backend dependencies: `fastapi`, `uvicorn[standard]`, `httpx`, `python-dotenv`, `gspread`, `google-auth`.
 
@@ -35,7 +34,7 @@ Use simple semver: `1.0.0` → `1.0.1` for patches, `1.1.0` for new features. No
 - **ID заказа** format: `DDMM-XXX` where DDMM = creation date (day+month), XXX = last 3 digits of client Telegram ID (or row № padded to 3 if no client ID)
 - **№** — sequential row counter (separate from ID заказа)
 - **Заметка** — master's internal notes; **Комментарий** — client's comment from the shop bot
-- **Фото** — local folder path on the server (`uploads/<order_id>/`); photos are saved there by the bot
+- **Фото** — storage reference for order photos: either a local folder path (`uploads/<order_id>/`) or a Drive folder reference (`drive:<folder_id>`) when Google Drive is configured
 
 ### Backend API (main.py — FastAPI)
 
