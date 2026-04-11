@@ -454,7 +454,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['Получен','В работе','Очередь','Пауза','Готово'];
@@ -713,14 +713,18 @@ function renderOrders() {
     });
   });
 
+  el.querySelectorAll('.msg-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const username = btn.dataset.username.replace(/^@/, '');
+      tg.openTelegramLink(`https://t.me/${username}`);
+    });
+  });
+
   el.querySelectorAll('.card[data-id]').forEach(card => {
     card.addEventListener('click', e => {
       if (e.target.closest('.status-badge')) return;
-      if (e.target.closest('.msg-btn')) {
-        const username = e.target.closest('.msg-btn').dataset.username;
-        tg.openTelegramLink(`https://t.me/${username}`);
-        return;
-      }
+      if (e.target.closest('.msg-btn')) return;
       openOrderDetail(card.dataset.id, state.orders);
     });
   });
