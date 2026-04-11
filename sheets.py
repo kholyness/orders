@@ -63,8 +63,11 @@ def _count_orders_sync() -> int:
     for sheet_name in ("Actual", "Archive"):
         rows = _get_ws(sheet_name).get_all_values()
         for row in rows[1:]:
-            if row and row[0].strip().isdigit():
-                nums.append(int(row[0].strip()))
+            if row and row[0].strip():
+                try:
+                    nums.append(int(float(row[0].strip())))
+                except ValueError:
+                    pass
     return max(nums) if nums else 0
 
 
