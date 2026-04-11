@@ -454,8 +454,9 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.2.0';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
+const BOT_USERNAME = 'YourBotUsername'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['Получен','В работе','Очередь','Пауза','Готово'];
 
@@ -737,6 +738,10 @@ function openOrderDetail(id, source) {
   renderOrderDetail(order);
 }
 
+function addPhoto(orderId) {
+  tg.openTelegramLink(`https://t.me/${BOT_USERNAME}?text=${orderId}`);
+}
+
 function renderOrderDetail(order) {
   const statusOptions = ['Очередь','В работе','Пауза','Готово']
     .map(s => `<option value="${s}"${order.status === s ? ' selected' : ''}>${s}</option>`)
@@ -769,7 +774,9 @@ function renderOrderDetail(order) {
     ${f('Комментарий клиента', 'comment', order.comment)}
     ${f('Заметка', 'note', order.note)}
     <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
-    ${order.photo ? `<div style="margin-bottom:16px"><a class="detail-link" href="${order.photo}" target="_blank">📁 Открыть папку Drive</a></div>` : ''}
+    <div style="margin-bottom:16px">
+      <button class="btn-secondary" style="width:100%" onclick="addPhoto('${order.id}')">📸 Добавить фото</button>
+    </div>
     <button class="btn-primary" id="btn-save" style="margin-top:8px">Сохранить</button>
     ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
   `;
