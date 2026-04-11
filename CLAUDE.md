@@ -35,7 +35,7 @@ Use simple semver: `1.0.0` → `1.0.1` for patches, `1.1.0` for new features. No
 - **ID заказа** format: `DDMM-XXX` where DDMM = creation date (day+month), XXX = last 3 digits of client Telegram ID (or row № padded to 3 if no client ID)
 - **№** — sequential row counter (separate from ID заказа)
 - **Заметка** — master's internal notes; **Комментарий** — client's comment from the shop bot
-- **Фото** — local folder path on the server (`uploads/<order_id>/`); photos are saved there by the bot
+- **Фото** — column exists in the sheet but is not used by the app
 
 ### Backend API (main.py — FastAPI)
 
@@ -64,10 +64,6 @@ Bot runs as an async polling loop inside the same FastAPI process (`bot_polling_
 
 Text status updates: `в работе <id>`, `пауза <id>`, `готово <id>`, `отдано <id>` (moves to archive)
 
-Photo handling — two flows supported:
-- **One-step:** send a photo with caption matching `^\d+$` or `^\d{4}-\d{3}$` — saves immediately.
-- **Two-step (Mini App flow):** Mini App calls `addPhoto(order.id)` → opens bot chat via `tg.openTelegramLink` with order ID pre-filled as text (`?text=DDMM-XXX`). User taps Send → bot stores the order ID in `_pending_photo` (in-memory dict) and replies asking for a photo → user sends photo (no caption needed) → bot saves it. Note: `_pending_photo` is not persisted — state is lost on server restart.
-
 ### Authentication (auth.py)
 - `validate_init_data(init_data)` — verifies Telegram HMAC-SHA256 signature and checks user ID against `ALLOWED_CHAT_IDS` (from env var)
 - `generate_token()` / `validate_token(token)` — HMAC-based hourly sliding window token (valid for current and previous hour)
@@ -85,12 +81,10 @@ Photo handling — two flows supported:
 - **Order detail** opens on card tap (not on status badge tap)
 - **Edit form** includes a native date picker for the deadline field
 - **Note indicator** shown on card when the order has a note
-- **"Добавить фото"** button calls `addPhoto(order.id)` → opens the bot chat via `tg.openTelegramLink` with the order ID pre-filled in the text box (`?text=DDMM-XXX`). User taps Send, bot asks for a photo, user sends it. See two-step photo flow in the Bot section above.
 
 ### Key Constants (index.html)
 ```js
 const SCRIPT_URL = '...'; // Backend URL (FastAPI server)
-const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
 const STATUS_ORDER = ['В работе','Очередь','Пауза','Готово']; // Display order
 ```
@@ -102,8 +96,6 @@ MY_CHAT_ID=        # Owner's chat ID — used for scheduled reports
 ALLOWED_CHAT_IDS=  # Comma-separated chat IDs allowed to use the Mini App and bot
 SHEET_ID=          # Google Sheets spreadsheet ID
 GOOGLE_CREDS_FILE= # Path to service account credentials JSON (default: credentials.json)
-UPLOAD_DIR=        # Local folder for order photos (default: uploads, used when DRIVE_FOLDER_ID is not set)
-DRIVE_FOLDER_ID=   # Google Drive parent folder ID — if set, order subfolders and photos go to Drive instead of local disk
 ```
 
 ## Logging & Debugging
@@ -117,7 +109,7 @@ journalctl -u moroska -f
 
 Each incoming bot message is logged at INFO level:
 ```
-2026-04-11 12:00:01 INFO bot msg chat=123456 text='0411-123' has_photo=False
+2026-04-11 12:00:01 INFO bot msg chat=123456 text='в работе 0411-123'
 ```
 
 Messages from unknown `chat_id`s are logged at WARNING. Unhandled exceptions include a full traceback via `logger.exception`.

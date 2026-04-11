@@ -1,0 +1,10 @@
+№,ID заказа,Дата создания,Имя,Username,ID клиента,Изделие,Модель,Артикул,Тип,Детали,Цена,Срок,Статус,Фото,Заметка,Комментарий
+1,0404-682,04.04.2026,Ксюша ,@xenia_me,92837682,Новогодний носок,,,Пошив,Купить ткань за заднюю часть и внутрь,0,,Пауза,https://drive.google.com/drive/folders/1Whyf-OngjCwa0NWxDG4DHSEIBJ4kcyRb,Была предоплата 5000,
+3,0404-212,04.04.2026,Екатерина Вострякова,@kath_hallywell,301294212,Чехол hello 24,чехол пяльца,,Пошив,Цветочки на белом,1000,09.04.2026,В работе,https://drive.google.com/drive/folders/1SE0Np3ORJrPVSbNsepssirtB4qBaY6Vb,,
+4,0404-011,04.04.2026,Полина Ионова,@avotipolli,141324011,Чехлы на раму 60х27 и защитное пончо,чехол рама,,Пошив,,3000,,Очередь,https://drive.google.com/drive/folders/1oTAO38DTYQcGq6wQ8onXDIYQtlN48Ltn,Надо поискать ткани,
+5,0404-614,04.04.2026,,@Zelan67,1184654614,Мешочки для упаковки,,,Пошив,"20 штук. Купить бежевую ткань 1,5м при ширине 140",3000,10.04,Очередь,https://drive.google.com/drive/folders/1VqcXqa_BqjRI6o5uiOyPa-IeJQ2RMIyz,"С кулиской, без шнурка. В длину 20, в высоту  24-25",
+6,0504-672,05.04.2026,Саша Федорова,@Sasha_Fe,413461672,Сумка-кроссбоди larna,Larna,,Пошив,"Большая, одно отделение, ремень из ткани",6300,26 апреля,Очередь,https://drive.google.com/drive/folders/1ReILsWin32bZ_-61e1qgTnWA2AACSB82,,
+7,0604-672,05.04.2026,Саша Федорова,@Sasha_Fe,413461672,Мини сумочка,Ilma,,Наличие,,700,26 апреля,Очередь,https://drive.google.com/drive/folders/1uhZvTOGUYIrJ2YFfjoRutg3GBWy5RV-Q,скидка за сумку,
+8,0704-672,07.04.2026,Саша Федорова,@Sasha_Fe,413461672,ilma,Ilma,,Пошив,к сумке клмплект,700,26 апреля,Очередь,https://drive.google.com/drive/folders/1xcXmEf4MhyAzrwWv7ql9MoBu3NaHoUHI,,
+9,0704-431,07.04.2026 18:56:32,Anastasia Lukianova,@AnaLukianova,374720431,Косметичка с цветочками,,HM-PCH-FLW,Наличие,,800,,Готово,,,
+10,0804-120,08.04.2026 21:29:59,Alyona ,@Alyona_Whitelip,346667120,Ролл для вышивки,,EM-ROL-BASE,Пошив,,от 3000,,Очередь,,,
