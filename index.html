@@ -526,10 +526,25 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.3.7';
+const APP_VERSION = '1.4.0';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
-const MODELS = ['Lada','Larna','Verbena','Ilma','ролл','тарелочка','мусорничка','чехол пяльца','чехол рама','Taloma','Tala','Loboda'];
+const MODEL_ARTICLES = {
+  'Слинг Verbena':        'BG-VRB',
+  'Кроссбоди Lada':       'BG-LAD',
+  'Кроссбоди Larna':      'BG-LRN',
+  'Шоппер Tala':          'BG-TAL',
+  'Шоппер Taloma':        'BG-TLM',
+  'Рюкзак L':             'BG-BPL',
+  'Брелок Ilma':          'AC-ILM',
+  'Ролл для вышивки':     'EM-ROL',
+  'Чехол на пяльца':      'EM-HPC',
+  'Ловушка для ниток':    'EM-TRP',
+  'Корзинка Loboda':      'HM-LOB',
+  'Тарелочка':            'HM-PLT',
+  'Мешочки для упаковки': 'HM-PKG',
+};
+const MODELS = Object.keys(MODEL_ARTICLES);
 const STATUS_ORDER = ['Получен','Готово','В работе','Пауза','Очередь'];
 
 // ── Telegram WebApp ──────────────────────────────────────────────────────────
@@ -897,6 +912,8 @@ function renderOrderDetail(order) {
     <input type="hidden" name="type" value="${order.type || 'Заказ'}">
     ${f('Имя', 'name', order.name)}
     ${f('Изделие', 'item', order.item)}
+    <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model" id="model-select"><option value="">— модель —</option>${modelOptions}</select></div>
+    <input type="hidden" name="article" id="article-hidden" value="${esc(order.article || '')}">
     ${f('Детали', 'details', order.details)}
     ${f('Цена', 'price', order.price, 'number')}
     <div class="field-group"><div class="field-label">Срок</div><input class="field-input" type="date" name="deadline" value="${esc(dmyToYmd(order.deadline || ''))}"></div>
@@ -909,6 +926,12 @@ function renderOrderDetail(order) {
   `;
 
   openSheet(html);
+
+  const modelSel = sheetContent.querySelector('#model-select');
+  const articleInp = sheetContent.querySelector('#article-hidden');
+  modelSel.addEventListener('change', () => {
+    articleInp.value = MODEL_ARTICLES[modelSel.value] || '';
+  });
 
   const pill = sheetContent.querySelector('#type-pill');
   pill.onclick = () => {
@@ -1008,6 +1031,8 @@ function openNewOrderForm() {
     <input type="hidden" name="username" value="">
     <input type="hidden" name="clientId" value="">
     <div class="field-group"><div class="field-label">Изделие</div><input class="field-input" name="item" placeholder="Название изделия"></div>
+    <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model" id="new-model-select"><option value="">— модель —</option>${MODELS.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
+    <input type="hidden" name="article" id="new-article-hidden" value="">
     <div class="field-group"><div class="field-label">Детали</div><textarea class="field-textarea" name="details" placeholder="Размер, цвет, материал..."></textarea></div>
     <div class="field-group"><div class="field-label">Цена</div><input class="field-input" name="price" type="number" placeholder="0"></div>
     <div class="field-group"><div class="field-label">Срок</div><input class="field-input" name="deadline" type="date"></div>
@@ -1016,6 +1041,12 @@ function openNewOrderForm() {
     <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
     <button class="btn-primary" id="btn-submit" style="margin-top:8px">Добавить заказ</button>
   `);
+
+  const newModelSel = sheetContent.querySelector('#new-model-select');
+  const newArticleInp = sheetContent.querySelector('#new-article-hidden');
+  newModelSel.addEventListener('change', () => {
+    newArticleInp.value = MODEL_ARTICLES[newModelSel.value] || '';
+  });
 
   const pill2 = sheetContent.querySelector('#type-pill');
   pill2.onclick = () => {
