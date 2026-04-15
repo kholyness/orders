@@ -540,7 +540,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.5.2';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -1364,7 +1364,7 @@ function renderClients(filter = '') {
     clients.forEach(c => {
       const expanded = state.expandedClient === c.name;
       const parsePrice = v => parseFloat((v || '').toString().replace(/\s/g, '').replace(',', '.')) || 0;
-      const totalSpent = c.orders.reduce((sum, o) => sum + parsePrice(o.price), 0);
+      const totalSpent = c.orders.filter(o => o.status === 'Отдано' && !!state.archive.find(a => a.id === o.id)).reduce((sum, o) => sum + parsePrice(o.price), 0);
       const sortedOrders = [...c.orders].sort((a, b) => toMs(b.date) - toMs(a.date));
 
       let ordersHtml = '';
