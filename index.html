@@ -531,7 +531,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.4';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -560,7 +560,9 @@ document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── State ────────────────────────────────────────────────────────────────────
 const state = { orders: [], archive: [], purchases: [], activeTab: 'orders' };
-const collapsedSections = new Set();
+const COLLAPSED_KEY = 'moroska_collapsed';
+const collapsedSections = new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'));
+function saveCollapsed() { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsedSections])); }
 
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
@@ -860,6 +862,7 @@ function renderOrders() {
       const status = header.dataset.collapseStatus;
       if (collapsedSections.has(status)) collapsedSections.delete(status);
       else collapsedSections.add(status);
+      saveCollapsed();
       renderOrders();
     });
   });
