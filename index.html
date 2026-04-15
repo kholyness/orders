@@ -1155,7 +1155,7 @@ function renderBuy() {
   function purchaseRow(p) {
     const done = p.status === 'Куплено';
     const linkedOrd = p.orderId ? state.orders.find(o => String(o.id) === String(p.orderId)) : null;
-    const orderRef = linkedOrd ? `#${linkedOrd.rowNum} ${linkedOrd.name}` : (p.orderId ? p.orderId : '');
+    const orderRef = linkedOrd ? `#${linkedOrd.rowNum} ${linkedOrd.name}${linkedOrd.item ? ' · ' + linkedOrd.item : ''}` : (p.orderId ? p.orderId : '');
     const sub = [p.quantity, orderRef].filter(Boolean).join(' · ');
     return `
       <div class="purchase-row" data-buy-edit="${p.rowIndex}">
