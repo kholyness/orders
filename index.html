@@ -99,6 +99,14 @@
     .card-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-subtitle { font-size: 12px; color: var(--hint); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-chevron { color: var(--hint); font-size: 20px; margin-left: 8px; flex-shrink: 0; }
+    .client-chevron { transition: transform 0.2s; display: inline-block; }
+    .client-chevron.expanded { transform: rotate(90deg); }
+    .client-block { display: flex; flex-direction: column; gap: 0; }
+    .client-block .client-header { border-radius: 12px; }
+    .client-block .client-orders { background: var(--bg-secondary); border-radius: 0 0 12px 12px; margin-top: -6px; padding: 6px 0 4px; }
+    .client-block:has(.client-orders) .client-header { border-radius: 12px 12px 0 0; }
+    .client-order-row { display: flex; align-items: center; padding: 8px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; border-top: 1px solid rgba(128,128,128,0.10); }
+    .client-order-row:active { opacity: 0.7; }
     .msg-btn-wrap { width: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .msg-btn { background: none; border: none; color: var(--accent); border-radius: 8px; padding: 4px; font-size: 18px; cursor: pointer; flex-shrink: 0; -webkit-tap-highlight-color: transparent; line-height: 1; }
     .card-divider { border: none; border-top: 1px solid rgba(128,128,128,0.15); margin: 6px 0 4px; }
@@ -531,7 +539,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.4.4';
+const APP_VERSION = '1.5.0';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -559,7 +567,7 @@ if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── State ────────────────────────────────────────────────────────────────────
-const state = { orders: [], archive: [], purchases: [], activeTab: 'orders' };
+const state = { orders: [], archive: [], purchases: [], activeTab: 'orders', expandedClient: null };
 const COLLAPSED_KEY = 'moroska_collapsed';
 const collapsedSections = new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'));
 function saveCollapsed() { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsedSections])); }
@@ -1351,57 +1359,64 @@ function renderClients(filter = '') {
   if (!clients.length) {
     html += '<div class="empty">Клиентов не найдено</div>';
   } else {
+    const toMs = d => { const p = (d||'').split('.'); return p.length===3 ? new Date(+p[2],+p[1]-1,+p[0]).getTime() : 0; };
     clients.forEach(c => {
+      const expanded = state.expandedClient === c.name;
+      const totalSpent = state.archive
+        .filter(o => (o.name || '').trim() === c.name)
+        .reduce((sum, o) => sum + (parseFloat(o.price) || 0), 0);
+      const sortedOrders = [...c.orders].sort((a, b) => toMs(b.date) - toMs(a.date));
+
+      let ordersHtml = '';
+      if (expanded) {
+        ordersHtml = `<div class="client-orders">`;
+        sortedOrders.forEach(o => {
+          const inArchive = !!state.archive.find(a => a.id === o.id);
+          ordersHtml += `
+            <div class="client-order-row" data-id="${o.id}" data-src="${inArchive ? 'archive' : 'orders'}">
+              <div class="card-main">
+                <div class="card-id">#${o.id}${o.date ? ' · ' + o.date : ''}</div>
+                <div class="card-title">${esc(o.model || o.item) || '—'}</div>
+                <div class="card-subtitle">${esc(o.status)}${o.price ? ' · ' + o.price + ' RSD' : ''}</div>
+              </div>
+              <div class="card-chevron">›</div>
+            </div>`;
+        });
+        ordersHtml += `</div>`;
+      }
+
       html += `
-        <div class="card" data-client="${esc(c.name)}">
-          <div class="card-main">
-            <div class="card-title">${esc(c.name)}</div>
-            <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}</div>
+        <div class="client-block">
+          <div class="card client-header" data-client="${esc(c.name)}">
+            <div class="card-main">
+              <div class="card-title">${esc(c.name)}</div>
+              <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}${totalSpent ? ' · ' + totalSpent.toLocaleString('ru') + ' RSD' : ''}</div>
+            </div>
+            <div class="card-chevron client-chevron${expanded ? ' expanded' : ''}">›</div>
           </div>
-          <div class="card-chevron">›</div>
+          ${ordersHtml}
         </div>`;
     });
   }
 
   el.innerHTML = html;
-  document.getElementById('client-search').oninput = e => renderClients(e.target.value);
-  el.querySelectorAll('.card[data-client]').forEach(card => {
-    card.onclick = () => openClientDetail(card.dataset.client);
+  document.getElementById('client-search').oninput = e => {
+    state.expandedClient = null;
+    renderClients(e.target.value);
+  };
+
+  el.querySelectorAll('.client-header').forEach(header => {
+    header.onclick = () => {
+      const name = header.dataset.client;
+      state.expandedClient = state.expandedClient === name ? null : name;
+      renderClients(filter);
+    };
   });
-}
 
-function openClientDetail(name) {
-  const all = state.orders.concat(state.archive);
-  const toMs = d => { const p = (d||'').split('.'); return p.length===3 ? new Date(+p[2],+p[1]-1,+p[0]).getTime() : 0; };
-  const orders = all.filter(o => (o.name || '').trim() === name)
-    .sort((a, b) => toMs(b.date) - toMs(a.date));
-  const totalSpent = state.archive
-    .filter(o => (o.name || '').trim() === name)
-    .reduce((sum, o) => sum + (parseFloat(o.price) || 0), 0);
-
-  const rows = orders.map(o => {
-    const inArchive = !!state.archive.find(a => a.id === o.id);
-    return `
-      <div class="card" data-id="${o.id}" data-src="${inArchive ? 'archive' : 'orders'}">
-        <div class="card-main">
-          <div class="card-id">#${o.id}${o.date ? ' · ' + o.date : ''}</div>
-          <div class="card-title">${esc(o.model || o.item) || '—'}</div>
-          <div class="card-subtitle">${esc(o.status)}${o.price ? ' · ' + o.price + ' RSD' : ''}</div>
-        </div>
-        <div class="card-chevron">›</div>
-      </div>`;
-  }).join('');
-
-  openSheet(`
-    <div class="sheet-title">${esc(name)}</div>
-    <div class="sheet-subtitle">${orders.length} ${declOrders(orders.length)} · ${totalSpent.toLocaleString('ru')} RSD</div>
-    ${rows || '<div class="empty">Нет заказов</div>'}
-  `);
-
-  sheetContent.querySelectorAll('.card[data-id]').forEach(card => {
-    card.onclick = () => {
-      const src = card.dataset.src === 'archive' ? state.archive : state.orders;
-      openOrderDetail(card.dataset.id, src);
+  el.querySelectorAll('.client-order-row').forEach(row => {
+    row.onclick = () => {
+      const src = row.dataset.src === 'archive' ? state.archive : state.orders;
+      openOrderDetail(row.dataset.id, src);
     };
   });
 }
