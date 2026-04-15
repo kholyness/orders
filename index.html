@@ -99,6 +99,7 @@
     .card-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-subtitle { font-size: 12px; color: var(--hint); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-chevron { color: var(--hint); font-size: 20px; margin-left: 8px; flex-shrink: 0; }
+    .client-total { font-size: 13px; font-weight: 600; color: var(--text); text-align: right; flex-shrink: 0; margin-left: 8px; }
     .client-chevron { transition: transform 0.2s; display: inline-block; }
     .client-chevron.expanded { transform: rotate(90deg); }
     .client-block { display: flex; flex-direction: column; gap: 0; }
@@ -120,8 +121,8 @@
     .card-meta { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
     .card-note-icon { color: var(--hint); display: flex; align-items: center; opacity: 0.6; }
     .card-tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
-    .card-tag.need { background: rgba(255,149,0,0.15); color: #d97700; }
-    .card-tag.have { background: rgba(45,138,78,0.15); color: #2d8a4e; }
+    .card-tag.need { background: rgba(0,0,0,0.07); color: var(--hint); }
+    .card-tag.have { background: rgba(0,0,0,0.07); color: var(--hint); }
 
     /* ── Section headers ── */
     .section-header {
@@ -539,7 +540,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.1';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -1362,9 +1363,8 @@ function renderClients(filter = '') {
     const toMs = d => { const p = (d||'').split('.'); return p.length===3 ? new Date(+p[2],+p[1]-1,+p[0]).getTime() : 0; };
     clients.forEach(c => {
       const expanded = state.expandedClient === c.name;
-      const totalSpent = state.archive
-        .filter(o => (o.name || '').trim() === c.name)
-        .reduce((sum, o) => sum + (parseFloat(o.price) || 0), 0);
+      const parsePrice = v => parseFloat((v || '').toString().replace(/\s/g, '').replace(',', '.')) || 0;
+      const totalSpent = c.orders.reduce((sum, o) => sum + parsePrice(o.price), 0);
       const sortedOrders = [...c.orders].sort((a, b) => toMs(b.date) - toMs(a.date));
 
       let ordersHtml = '';
@@ -1390,8 +1390,9 @@ function renderClients(filter = '') {
           <div class="card client-header" data-client="${esc(c.name)}">
             <div class="card-main">
               <div class="card-title">${esc(c.name)}</div>
-              <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}${totalSpent ? ' · ' + totalSpent.toLocaleString('ru') + ' RSD' : ''}</div>
+              <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}</div>
             </div>
+            ${totalSpent ? `<div class="client-total">${totalSpent.toLocaleString('ru')} RSD</div>` : ''}
             <div class="card-chevron client-chevron${expanded ? ' expanded' : ''}">›</div>
           </div>
           ${ordersHtml}
