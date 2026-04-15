@@ -272,9 +272,20 @@
       -webkit-overflow-scrolling: touch;
       transform: translateY(100%);
       transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-      padding: 0 16px 40px;
+      padding: 0 16px 0;
     }
     #sheet.visible { transform: translateY(0); }
+    #sheet-content { padding-bottom: 40px; }
+    .sheet-footer {
+      position: sticky;
+      bottom: 0;
+      background: var(--bg);
+      padding: 10px 0 16px;
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
     .sheet-handle {
       width: 36px; height: 4px;
@@ -526,7 +537,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.2';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -557,6 +568,40 @@ document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 const state = { orders: [], archive: [], purchases: [], activeTab: 'orders' };
 const collapsedSections = new Set();
 
+
+// ── Cache ─────────────────────────────────────────────────────────────────────
+const CACHE_KEY = 'moroska_data';
+const AUTO_REFRESH_MS = 10 * 60 * 1000; // 10 minutes
+
+function saveCache() {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      orders: state.orders,
+      archive: state.archive,
+      purchases: state.purchases,
+      ts: Date.now()
+    }));
+  } catch (e) {}
+}
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return false;
+    const { orders, archive, purchases } = JSON.parse(raw);
+    state.orders = orders || [];
+    state.archive = archive || [];
+    state.purchases = purchases || [];
+    return true;
+  } catch (e) { return false; }
+}
+
+function renderActiveTab() {
+  if (state.activeTab === 'orders') renderOrders();
+  else if (state.activeTab === 'buy') renderBuy();
+  else if (state.activeTab === 'stats') renderStats();
+  else if (state.activeTab === 'clients') renderClients();
+}
 
 // ── API ──────────────────────────────────────────────────────────────────────
 let sessionToken = null;
@@ -597,6 +642,7 @@ async function loadData() {
   state.orders = a.orders || [];
   state.archive = b.orders || [];
   state.purchases = c.purchases || [];
+  saveCache();
 }
 
 async function refreshPurchases() {
@@ -920,8 +966,10 @@ function renderOrderDetail(order) {
     ${f('Комментарий клиента', 'comment', order.comment)}
     ${f('Заметка', 'note', order.note)}
     <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
-    <button class="btn-primary" id="btn-save" style="margin-top:8px">Сохранить</button>
-    ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
+    <div class="sheet-footer">
+      <button class="btn-primary" id="btn-save">Сохранить</button>
+      ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
+    </div>
     ${purchasesHtml}
   `;
 
@@ -952,10 +1000,9 @@ function renderOrderDetail(order) {
       if (p.length === 3) data.deadline = p[2] + '.' + p[1] + '.' + p[0];
     }
     await apiPost(data);
-    Object.assign(order, data);
     await refreshOrders();
-    renderOrderDetail(order);
-    if (state.activeTab === 'orders') renderOrders();
+    closeSheet();
+    renderOrders();
   };
 
   const btnArchive = document.getElementById('btn-archive');
@@ -1039,7 +1086,9 @@ function openNewOrderForm() {
     <div class="field-group"><div class="field-label">Комментарий клиента</div><input class="field-input" name="comment" placeholder="Необязательно"></div>
     <div class="field-group"><div class="field-label">Заметка</div><input class="field-input" name="note" placeholder="Необязательно"></div>
     <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
-    <button class="btn-primary" id="btn-submit" style="margin-top:8px">Добавить заказ</button>
+    <div class="sheet-footer">
+      <button class="btn-primary" id="btn-submit">Добавить заказ</button>
+    </div>
   `);
 
   const newModelSel = sheetContent.querySelector('#new-model-select');
@@ -1169,8 +1218,10 @@ function openNewPurchaseForm(options = {}) {
     <div class="field-group"><div class="field-label">Название</div><input class="field-input" name="item" placeholder="Что купить"></div>
     <div class="field-group"><div class="field-label">Количество</div><input class="field-input" name="quantity" placeholder="Например: 2 м, 3 шт"></div>
     <div class="field-group"><div class="field-label">№ заказа</div><input class="field-input" name="orderNum" type="number" placeholder="Необязательно" value="${esc(prefillOrderNum)}"></div>
-    <button class="btn-primary" id="btn-submit-purchase" style="margin-top:8px">Добавить</button>
-    <button class="btn-secondary" id="btn-cancel-purchase">Отмена</button>
+    <div class="sheet-footer">
+      <button class="btn-primary" id="btn-submit-purchase">Добавить</button>
+      <button class="btn-secondary" id="btn-cancel-purchase">Отмена</button>
+    </div>
   `);
   const cancel = onDone || closeSheet;
   document.getElementById('btn-cancel-purchase').onclick = cancel;
@@ -1209,8 +1260,10 @@ function openPurchaseDetail(p, onDone) {
     <div class="field-group"><div class="field-label">Название</div><input class="field-input" name="item" value="${esc(p.item)}"></div>
     <div class="field-group"><div class="field-label">Количество</div><input class="field-input" name="quantity" value="${esc(p.quantity)}"></div>
     <div class="field-group"><div class="field-label">№ заказа</div><input class="field-input" name="orderNum" type="number" placeholder="Необязательно" value="${esc(currentOrderNum)}"></div>
-    <button class="btn-primary" id="btn-save-purchase" style="margin-top:8px">Сохранить</button>
-    <button class="btn-danger" id="btn-delete-purchase">Удалить</button>
+    <div class="sheet-footer">
+      <button class="btn-primary" id="btn-save-purchase">Сохранить</button>
+      <button class="btn-danger" id="btn-delete-purchase">Удалить</button>
+    </div>
   `);
   const done = onDone || (() => { closeSheet(); renderBuy(); });
   document.getElementById('btn-save-purchase').onclick = async () => {
@@ -1387,14 +1440,29 @@ function declOrders(n) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
-  document.getElementById('tab-orders').innerHTML = '<div class="loading">Загрузка...</div>';
+  const hasCached = loadCache();
+  if (hasCached) {
+    renderOrders(); // instant render from cache
+  } else {
+    document.getElementById('tab-orders').innerHTML = '<div class="loading">Загрузка...</div>';
+  }
+
   try {
     await Promise.all([loadData(), fetchSessionToken()]);
   } catch (e) {
-    document.getElementById('tab-orders').innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
+    if (!hasCached) {
+      document.getElementById('tab-orders').innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
+    }
     return;
   }
   renderOrders();
+
+  setInterval(async () => {
+    try {
+      await loadData();
+      renderActiveTab();
+    } catch (e) {}
+  }, AUTO_REFRESH_MS);
 }
 
 init();
