@@ -102,11 +102,10 @@
     .card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; margin-left: 8px; }
     .card-right-top { display: flex; align-items: center; gap: 4px; }
     .card-chevron { color: var(--hint); font-size: 20px; margin-left: 8px; flex-shrink: 0; }
-    .client-total { font-size: 13px; font-weight: 600; color: var(--text); text-align: right; flex-shrink: 0; margin-left: 8px; }
-    .client-chevron { transition: transform 0.2s; display: inline-block; }
-    .client-chevron.expanded { transform: rotate(90deg); }
+    .client-name-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .client-total { font-size: 13px; font-weight: 600; color: var(--text); flex-shrink: 0; }
     .client-block { display: flex; flex-direction: column; gap: 0; }
-    .client-block .client-header { border-radius: 12px; }
+    .client-block .client-header { border-radius: 12px; padding: 6px 10px; margin-bottom: 5px; }
     .client-block .client-orders { background: var(--bg-secondary); border-radius: 0 0 12px 12px; margin-top: -6px; padding: 6px 0 4px; }
     .client-block:has(.client-orders) .client-header { border-radius: 12px 12px 0 0; }
     .client-order-row { display: flex; align-items: center; padding: 8px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; border-top: 1px solid rgba(128,128,128,0.10); }
@@ -545,7 +544,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.4';
+const APP_VERSION = '1.5.5';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -1402,12 +1401,11 @@ function renderClients(filter = '') {
       html += `
         <div class="client-block">
           <div class="card client-header" data-client="${esc(c.name)}">
-            <div class="card-main">
+            <div class="client-name-row">
               <div class="card-title">${esc(c.name)}</div>
-              <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}</div>
+              ${totalSpent ? `<div class="client-total">${totalSpent.toLocaleString('ru')} RSD</div>` : ''}
             </div>
-            ${totalSpent ? `<div class="client-total">${totalSpent.toLocaleString('ru')} RSD</div>` : ''}
-            <div class="card-chevron client-chevron${expanded ? ' expanded' : ''}">›</div>
+            <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}</div>
           </div>
           ${ordersHtml}
         </div>`;
