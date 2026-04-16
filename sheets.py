@@ -29,7 +29,7 @@ ORDER_FIELD_COL = {
     "item": 6, "model": 7, "article": 8,
     "type": 9, "details": 10, "price": 11,
     "deadline": 12, "status": 13,
-    "note": 15, "comment": 16,
+    "note": 15, "comment": 16, "closedDate": 17,
 }
 
 # Purchase columns (0-based): date, item, quantity, price, orderId, orderName, status, note
@@ -90,19 +90,21 @@ def _update_order_sync(order_id: str, col_updates: dict, sheet_name: str = "Actu
     ws, row_num = _find_order_row_sync(order_id, sheet_name)
     if row_num is None:
         return False
-    row = _pad(ws.row_values(row_num), 17)
+    row = _pad(ws.row_values(row_num), 18)
     for col, val in col_updates.items():
         row[col] = val
-    ws.update(f"A{row_num}:Q{row_num}", [row])
+    ws.update(f"A{row_num}:R{row_num}", [row])
     return True
 
 
 def _move_to_archive_sync(order_id: str) -> bool:
+    from datetime import datetime as _dt
     ws_orders, row_num = _find_order_row_sync(order_id)
     if row_num is None:
         return False
-    row = _pad(ws_orders.row_values(row_num), 17)
+    row = _pad(ws_orders.row_values(row_num), 18)
     row[13] = "Отдано"
+    row[17] = _dt.now().strftime("%d.%m.%Y")
     _get_ws("Archive").append_row(row, value_input_option="USER_ENTERED")
     ws_orders.delete_rows(row_num)
     return True

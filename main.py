@@ -37,7 +37,7 @@ async def on_startup():
 
 def row_to_order(row) -> dict:
     row = list(row)
-    while len(row) < 17:
+    while len(row) < 18:
         row.append("")
     return {
         "rowNum": row[0] or "",
@@ -56,6 +56,7 @@ def row_to_order(row) -> dict:
         "status": row[13] or "",
         "note": row[15] or "",
         "comment": row[16] or "",
+        "closedDate": row[17] or "",
     }
 
 
@@ -158,6 +159,21 @@ async def build_stats() -> dict:
         except ValueError:
             pass
 
+    monthly: dict[str, dict] = {}
+    for r in archived:
+        parts = (r["closedDate"] or r["date"]).split(".")
+        if len(parts) == 3:
+            try:
+                mo, yr = int(parts[1]), int(parts[2])
+                key = f"{mo:02d}.{yr}"
+                if key not in monthly:
+                    monthly[key] = {"month": mo, "year": yr, "count": 0, "income": 0.0}
+                monthly[key]["count"] += 1
+                monthly[key]["income"] += to_float(r["price"])
+            except (ValueError, IndexError):
+                pass
+    monthly_list = sorted(monthly.values(), key=lambda x: (x["year"], x["month"]))
+
     return {
         "activeCount": len(active),
         "archiveCount": len(archived),
@@ -166,6 +182,7 @@ async def build_stats() -> dict:
         "income": income,
         "topModels": [{"name": n, "count": c} for n, c in top_models],
         "upcomingDeadlines": upcoming,
+        "byMonth": monthly_list,
     }
 
 

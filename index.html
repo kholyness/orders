@@ -370,6 +370,24 @@
     .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); line-height: 1; }
     .stat-label { font-size: 11px; color: var(--hint); margin-top: 2px; }
 
+    .stats-toggle { display: flex; background: var(--bg-secondary); border-radius: 10px; padding: 3px; margin-bottom: 14px; gap: 2px; }
+    .stats-toggle-btn { flex: 1; padding: 6px 0; border: none; background: transparent; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--hint); cursor: pointer; transition: background .15s, color .15s; }
+    .stats-toggle-btn.active { background: var(--accent); color: #fff; }
+
+    .stats-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .stats-nav-arrow { background: var(--bg-secondary); border: none; border-radius: 8px; width: 32px; height: 32px; font-size: 18px; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .stats-nav-label { font-size: 15px; font-weight: 600; }
+
+    .stats-month-rows { background: var(--bg-secondary); border-radius: 10px; padding: 2px 12px; margin-bottom: 10px; }
+
+    .stats-histogram { display: flex; align-items: stretch; gap: 3px; height: 100px; margin-bottom: 2px; }
+    .hist-col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+    .hist-bar { width: 100%; border-radius: 3px 3px 0 0; background: var(--accent); opacity: 0.75; }
+    .hist-bar.current { opacity: 1; }
+    .hist-value { font-size: 8px; color: var(--text); font-weight: 500; white-space: nowrap; }
+    .hist-months { display: flex; gap: 3px; margin-bottom: 10px; }
+    .hist-month-lbl { flex: 1; text-align: center; font-size: 9px; color: var(--hint); }
+
     .list-block {
       background: var(--bg-secondary);
       border-radius: 10px;
@@ -544,7 +562,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.5';
+const APP_VERSION = '1.6.0';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -572,7 +590,8 @@ if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
 document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── State ────────────────────────────────────────────────────────────────────
-const state = { orders: [], archive: [], purchases: [], activeTab: 'orders', expandedClient: null };
+const state = { orders: [], archive: [], purchases: [], activeTab: 'orders', expandedClient: null,
+  statsView: 'month', statsYear: new Date().getFullYear(), statsMonth: new Date().getMonth() + 1 };
 const COLLAPSED_KEY = 'moroska_collapsed';
 const collapsedSections = new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'));
 function saveCollapsed() { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsedSections])); }
@@ -1313,12 +1332,90 @@ function openPurchaseDetail(p, onDone) {
 }
 
 // ── STATS TAB ─────────────────────────────────────────────────────────────────
-async function renderStats() {
+const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MONTHS_SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+
+let _statsCache = null;
+
+async function renderStats(forceReload) {
   const el = document.getElementById('tab-stats');
-  el.innerHTML = '<div class="loading">Загрузка...</div>';
-  let s;
-  try { s = await apiGet('getStats'); } catch (e) {
-    el.innerHTML = '<div class="empty">Ошибка загрузки</div>'; return;
+  if (!_statsCache || forceReload) {
+    el.innerHTML = '<div class="loading">Загрузка...</div>';
+    try { _statsCache = await apiGet('getStats'); } catch (e) {
+      el.innerHTML = '<div class="empty">Ошибка загрузки</div>'; return;
+    }
+  }
+  const s = _statsCache;
+  const byMonth = s.byMonth || [];
+
+  const toggleHtml = `
+    <div class="stats-toggle">
+      <button class="stats-toggle-btn${state.statsView==='month'?' active':''}" onclick="state.statsView='month';renderStats()">Месяц</button>
+      <button class="stats-toggle-btn${state.statsView==='year'?' active':''}" onclick="state.statsView='year';renderStats()">Год</button>
+    </div>`;
+
+  let contentHtml = '';
+
+  if (state.statsView === 'month') {
+    const mo = state.statsMonth, yr = state.statsYear;
+    const prev = mo === 1 ? { m: 12, y: yr - 1 } : { m: mo - 1, y: yr };
+    const next = mo === 12 ? { m: 1, y: yr + 1 } : { m: mo + 1, y: yr };
+    const navHtml = `
+      <div class="stats-nav">
+        <button class="stats-nav-arrow" onclick="state.statsMonth=${prev.m};state.statsYear=${prev.y};renderStats()">‹</button>
+        <span class="stats-nav-label">${MONTHS_RU[mo-1]} ${yr}</span>
+        <button class="stats-nav-arrow" onclick="state.statsMonth=${next.m};state.statsYear=${next.y};renderStats()">›</button>
+      </div>`;
+
+    const entry = byMonth.find(x => x.month === mo && x.year === yr);
+    const count = entry ? entry.count : 0;
+    const income = entry ? Math.round(entry.income) : 0;
+
+    contentHtml = navHtml + `
+      <div class="stats-month-rows">
+        <div class="list-row"><span>Завершено</span><b>${count} ${declOrders(count)}</b></div>
+        <div class="list-row"><span>Доход</span><b>${income.toLocaleString('ru')} RSD</b></div>
+      </div>`;
+
+  } else {
+    const yr = state.statsYear;
+    const prevYr = yr - 1, nextYr = yr + 1;
+    const navHtml = `
+      <div class="stats-nav">
+        <button class="stats-nav-arrow" onclick="state.statsYear=${prevYr};renderStats()">‹</button>
+        <span class="stats-nav-label">${yr}</span>
+        <button class="stats-nav-arrow" onclick="state.statsYear=${nextYr};renderStats()">›</button>
+      </div>`;
+
+    const monthIncomes = Array.from({length: 12}, (_, i) => {
+      const entry = byMonth.find(x => x.month === i + 1 && x.year === yr);
+      return entry ? entry.income : 0;
+    });
+    const maxIncome = Math.max(...monthIncomes, 1);
+    const nowMo = new Date().getMonth(); // 0-indexed
+
+    const maxBarPx = 80;
+    const bars = monthIncomes.map((inc, i) => {
+      const barPx = inc > 0 ? Math.max(3, Math.round((inc / maxIncome) * maxBarPx)) : 0;
+      const isCurrent = yr === new Date().getFullYear() && i === nowMo;
+      const label = inc >= 1000 ? Math.round(inc / 1000) + 'к' : (inc > 0 ? Math.round(inc) : '');
+      return `<div class="hist-col">
+        <div class="hist-value">${label}</div>
+        <div style="flex:1"></div>
+        <div class="hist-bar${isCurrent?' current':''}" style="height:${barPx}px"></div>
+      </div>`;
+    }).join('');
+    const monthLabels = MONTHS_SHORT.map(m => `<div class="hist-month-lbl">${m}</div>`).join('');
+
+    const totalYr = monthIncomes.reduce((a, b) => a + b, 0);
+    const totalRounded = Math.round(totalYr / 1000);
+
+    contentHtml = navHtml + `
+      <div class="stats-histogram">${bars}</div>
+      <div class="hist-months">${monthLabels}</div>
+      <div class="list-block">
+        <div class="list-row"><span>Итого за ${yr}</span><b>≈${totalRounded}к RSD</b></div>
+      </div>`;
   }
 
   const topModels = (s.topModels || []).length
@@ -1335,12 +1432,8 @@ async function renderStats() {
       <div class="stat-card"><div class="stat-value">${s.typeOrder||0}</div><div class="stat-label">На заказ</div></div>
       <div class="stat-card"><div class="stat-value">${s.typeStock||0}</div><div class="stat-label">Наличие</div></div>
     </div>
-
-    <div class="section-header">Доход (архив)</div>
-    <div class="stats-grid">
-      <div class="stat-card full"><div class="stat-value">${(s.income||0).toLocaleString('ru')} RSD</div><div class="stat-label">Общий доход</div></div>
-    </div>
-
+    ${toggleHtml}
+    ${contentHtml}
     <div class="section-header">Топ моделей</div>
     <div class="list-block">${topModels}</div>
   `;
