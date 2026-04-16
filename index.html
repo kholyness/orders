@@ -562,7 +562,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.6.2';
+const APP_VERSION = '1.6.3';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -859,8 +859,8 @@ function renderOrders() {
       list.forEach(o => {
         const orderTitle = esc(o.item || o.model) || '—';
         const tgUsername = o.username || '';
-        const igMatch = o.note && o.note.match(/ig:(\S+)/);
-        const igUsername = igMatch ? igMatch[1] : '';
+        const igMatch = o.note && (o.note.match(/ig:(\S+)/) || o.note.match(/@([\w.]+)/));
+        const igUsername = igMatch ? (igMatch[1] || igMatch[2] || '') : '';
         const clientName = esc(o.name || '') || '—';
         const orderPurchases = state.purchases.filter(p => String(p.orderId) === String(o.id));
         const purchasesHtml = orderPurchases.length ? `
@@ -1015,7 +1015,7 @@ function renderOrderDetail(order, isArchive = false) {
     </div>
     ${f('Комментарий клиента', 'comment', order.comment)}
     ${f('Заметка', 'note', order.note)}
-    ${order.note && order.note.match(/ig:(\S+)/) ? `<button class="btn-secondary ig-detail-btn" data-iguser="${esc(order.note.match(/ig:(\S+)/)[1])}" style="margin-bottom:8px;width:100%">Написать в Instagram @${esc(order.note.match(/ig:(\S+)/)[1])}</button>` : ''}
+    ${(() => { const m = order.note && (order.note.match(/ig:(\S+)/) || order.note.match(/@([\w.]+)/)); const u = m ? (m[1] || m[2] || '') : ''; return u ? `<button class="btn-secondary ig-detail-btn" data-iguser="${esc(u)}" style="margin-bottom:8px;width:100%">Написать в Instagram @${esc(u)}</button>` : ''; })()}
     <div class="sheet-footer">
       <button class="btn-primary" id="btn-save">Сохранить</button>
       ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
