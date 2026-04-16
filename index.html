@@ -1560,7 +1560,7 @@ function deadlineLabel(deadline) {
   if (diff === 0) suffix = ' · сегодня';
   else suffix = ` · ${diff} дн.`;
   const urgent = diff <= 7;
-  const label = deadline + suffix;
+  const label = parts[0] + '.' + parts[1] + suffix;
   return urgent ? `<span style="color:#e53935">${label}</span>` : label;
 }
 
