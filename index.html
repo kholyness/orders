@@ -562,7 +562,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.6.2';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -859,6 +859,8 @@ function renderOrders() {
       list.forEach(o => {
         const orderTitle = esc(o.item || o.model) || '—';
         const tgUsername = o.username || '';
+        const igMatch = o.note && o.note.match(/ig:(\S+)/);
+        const igUsername = igMatch ? igMatch[1] : '';
         const clientName = esc(o.name || '') || '—';
         const orderPurchases = state.purchases.filter(p => String(p.orderId) === String(o.id));
         const purchasesHtml = orderPurchases.length ? `
@@ -879,7 +881,7 @@ function renderOrders() {
                 <div class="card-subtitle">${clientName}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}</div>
               </div>
               <div class="card-right">
-                <div class="card-right-top">${tgUsername ? `<button class="msg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}<div class="status-badge ${statusBadgeClass(o.status)}" data-badge-id="${o.id}">${esc(o.status || 'Очередь')}</div></div>
+                <div class="card-right-top">${tgUsername ? `<button class="msg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}${igUsername ? `<button class="ig-btn" data-iguser="${esc(igUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2"/></svg></button>` : ''}<div class="status-badge ${statusBadgeClass(o.status)}" data-badge-id="${o.id}">${esc(o.status || 'Очередь')}</div></div>
                 ${stockTag}
               </div>
             </div>${metaHtml}${purchasesHtml}
@@ -919,6 +921,13 @@ function renderOrders() {
     });
   });
 
+  el.querySelectorAll('.ig-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      tg.openLink(`https://ig.me/m/${btn.dataset.iguser}`);
+    });
+  });
+
   el.querySelectorAll('[data-card-cb]').forEach(cb => {
     cb.addEventListener('click', async e => {
       e.stopPropagation();
@@ -938,6 +947,7 @@ function renderOrders() {
     card.addEventListener('click', e => {
       if (e.target.closest('.status-badge')) return;
       if (e.target.closest('.msg-btn')) return;
+      if (e.target.closest('.ig-btn')) return;
       if (e.target.closest('[data-card-cb]')) return;
       openOrderDetail(card.dataset.id, state.orders);
     });
@@ -1005,6 +1015,7 @@ function renderOrderDetail(order, isArchive = false) {
     </div>
     ${f('Комментарий клиента', 'comment', order.comment)}
     ${f('Заметка', 'note', order.note)}
+    ${order.note && order.note.match(/ig:(\S+)/) ? `<button class="btn-secondary ig-detail-btn" data-iguser="${esc(order.note.match(/ig:(\S+)/)[1])}" style="margin-bottom:8px;width:100%">Написать в Instagram @${esc(order.note.match(/ig:(\S+)/)[1])}</button>` : ''}
     <div class="sheet-footer">
       <button class="btn-primary" id="btn-save">Сохранить</button>
       ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
@@ -1013,6 +1024,9 @@ function renderOrderDetail(order, isArchive = false) {
   `;
 
   openSheet(html);
+
+  const igDetailBtn = sheetContent.querySelector('.ig-detail-btn');
+  if (igDetailBtn) igDetailBtn.addEventListener('click', () => tg.openLink(`https://ig.me/m/${igDetailBtn.dataset.iguser}`));
 
   const modelSel = sheetContent.querySelector('#model-select');
   const articleInp = sheetContent.querySelector('#article-hidden');
