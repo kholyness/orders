@@ -127,7 +127,7 @@ async def build_stats() -> dict:
 
     def to_float(s):
         try:
-            return float(s)
+            return float(str(s).replace('\xa0', '').replace(' ', '').replace(',', '.'))
         except (ValueError, TypeError):
             return 0.0
 
