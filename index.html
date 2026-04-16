@@ -308,12 +308,12 @@
     }
 
     /* ── Form fields ── */
-    .field-group { margin-bottom: 14px; }
-    .field-label { font-size: 13px; color: var(--hint); margin-bottom: 5px; }
+    .field-group { margin-bottom: 10px; }
+    .field-label { font-size: 13px; color: var(--hint); margin-bottom: 4px; }
 
     .field-input, .field-select, .field-textarea {
       width: 100%;
-      padding: 11px 12px;
+      padding: 9px 11px;
       background: var(--bg-secondary);
       border: none;
       border-radius: 10px;
@@ -323,7 +323,9 @@
       font-family: inherit;
       -webkit-appearance: none;
     }
-    .field-textarea { resize: none; min-height: 76px; }
+    .field-textarea { resize: none; min-height: 72px; }
+    .field-row { display: flex; gap: 10px; }
+    .field-row .field-group { flex: 1; min-width: 0; }
 
     /* ── Type toggle ── */
     .sheet-title {
@@ -543,7 +545,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.3';
+const APP_VERSION = '1.5.4';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -959,9 +961,12 @@ function renderOrderDetail(order) {
   const html = `
     <div class="sheet-title">
       <span>#${order.rowNum} ${esc(order.name) || ''}</span>
-      <div class="type-pill${order.type === 'Наличие' ? ' is-nalichie' : ''}" id="type-pill">
-        <div class="type-pill-dot"></div>
-        <span class="type-pill-label">${order.type === 'Наличие' ? 'Наличие' : 'Заказ'}</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <select class="field-select" name="status" style="padding:5px 8px;font-size:13px;border-radius:20px;width:auto">${statusOptions}</select>
+        <div class="type-pill${order.type === 'Наличие' ? ' is-nalichie' : ''}" id="type-pill">
+          <div class="type-pill-dot"></div>
+          <span class="type-pill-label">${order.type === 'Наличие' ? 'Наличие' : 'Заказ'}</span>
+        </div>
       </div>
     </div>
     <input type="hidden" name="type" value="${order.type || 'Заказ'}">
@@ -970,11 +975,12 @@ function renderOrderDetail(order) {
     <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model" id="model-select"><option value="">— модель —</option>${modelOptions}</select></div>
     <input type="hidden" name="article" id="article-hidden" value="${esc(order.article || '')}">
     ${f('Детали', 'details', order.details)}
-    ${f('Цена', 'price', order.price, 'number')}
-    <div class="field-group"><div class="field-label">Срок</div><input class="field-input" type="date" name="deadline" value="${esc(dmyToYmd(order.deadline || ''))}"></div>
+    <div class="field-row">
+      ${f('Цена', 'price', order.price, 'number')}
+      <div class="field-group"><div class="field-label">Срок</div><input class="field-input" type="date" name="deadline" value="${esc(dmyToYmd(order.deadline || ''))}"></div>
+    </div>
     ${f('Комментарий клиента', 'comment', order.comment)}
     ${f('Заметка', 'note', order.note)}
-    <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
     <div class="sheet-footer">
       <button class="btn-primary" id="btn-save">Сохранить</button>
       ${order.status === 'Готово' ? `<button class="btn-danger" id="btn-archive">Перенести в архив</button>` : ''}
@@ -1076,9 +1082,12 @@ function openNewOrderForm() {
   openSheet(`
     <div class="sheet-title">
       <span>Новый заказ</span>
-      <div class="type-pill" id="type-pill">
-        <div class="type-pill-dot"></div>
-        <span class="type-pill-label">Заказ</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <select class="field-select" name="status" style="padding:5px 8px;font-size:13px;border-radius:20px;width:auto">${statusOptions}</select>
+        <div class="type-pill" id="type-pill">
+          <div class="type-pill-dot"></div>
+          <span class="type-pill-label">Заказ</span>
+        </div>
       </div>
     </div>
     <input type="hidden" name="type" value="Заказ">
@@ -1090,11 +1099,12 @@ function openNewOrderForm() {
     <div class="field-group"><div class="field-label">Модель</div><select class="field-select" name="model" id="new-model-select"><option value="">— модель —</option>${MODELS.map(m => `<option value="${m}">${m}</option>`).join('')}</select></div>
     <input type="hidden" name="article" id="new-article-hidden" value="">
     <div class="field-group"><div class="field-label">Детали</div><textarea class="field-textarea" name="details" placeholder="Размер, цвет, материал..."></textarea></div>
-    <div class="field-group"><div class="field-label">Цена</div><input class="field-input" name="price" type="number" placeholder="0"></div>
-    <div class="field-group"><div class="field-label">Срок</div><input class="field-input" name="deadline" type="date"></div>
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">Цена</div><input class="field-input" name="price" type="number" placeholder="0"></div>
+      <div class="field-group"><div class="field-label">Срок</div><input class="field-input" name="deadline" type="date"></div>
+    </div>
     <div class="field-group"><div class="field-label">Комментарий клиента</div><input class="field-input" name="comment" placeholder="Необязательно"></div>
     <div class="field-group"><div class="field-label">Заметка</div><input class="field-input" name="note" placeholder="Необязательно"></div>
-    <div class="field-group"><div class="field-label">Статус</div><select class="field-select" name="status">${statusOptions}</select></div>
     <div class="sheet-footer">
       <button class="btn-primary" id="btn-submit">Добавить заказ</button>
     </div>
