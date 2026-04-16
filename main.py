@@ -235,7 +235,8 @@ async def update_order(p: dict) -> dict:
     }
     if not col_updates:
         return {"success": True}
-    ok = await sheets.update_order(p["id"], col_updates)
+    sheet_name = "Archive" if p.get("sheet") == "archive" else "Actual"
+    ok = await sheets.update_order(p["id"], col_updates, sheet_name)
     return {"success": ok}
 
 

@@ -924,10 +924,11 @@ function renderOrders() {
 function openOrderDetail(id, source) {
   const order = source.find(o => String(o.id) === String(id));
   if (!order) return;
-  renderOrderDetail(order);
+  const isArchive = source === state.archive;
+  renderOrderDetail(order, isArchive);
 }
 
-function renderOrderDetail(order) {
+function renderOrderDetail(order, isArchive = false) {
   const statusOptions = ['Очередь','В работе','Пауза','Готово']
     .map(s => `<option value="${s}"${order.status === s ? ' selected' : ''}>${s}</option>`)
     .join('');
@@ -1007,7 +1008,7 @@ function renderOrderDetail(order) {
   document.getElementById('btn-save').onclick = async () => {
     const btn = document.getElementById('btn-save');
     btn.disabled = true; btn.textContent = 'Сохраняем...';
-    const data = { action: 'updateOrder', id: order.id };
+    const data = { action: 'updateOrder', id: order.id, ...(isArchive ? { sheet: 'archive' } : {}) };
     sheetContent.querySelectorAll('[name]').forEach(inp => { data[inp.name] = inp.value; });
     if (data.deadline) {
       const p = data.deadline.split('-');
@@ -1039,7 +1040,7 @@ function renderOrderDetail(order) {
       if (!p) return;
       if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
       p.status = p.status === 'Куплено' ? 'Купить' : 'Куплено';
-      renderOrderDetail(order);
+      renderOrderDetail(order, isArchive);
       await apiPost({ action: 'togglePurchaseStatus', rowIndex: p.rowIndex });
     });
   });
@@ -1049,7 +1050,7 @@ function renderOrderDetail(order) {
       if (e.target.closest('[data-order-cb]')) return;
       const idx = row.dataset.orderEdit;
       const p = state.purchases.find(p => String(p.rowIndex) === String(idx));
-      if (p) openPurchaseDetail(p, () => renderOrderDetail(order));
+      if (p) openPurchaseDetail(p, () => renderOrderDetail(order, isArchive));
     });
   });
 
@@ -1057,7 +1058,7 @@ function renderOrderDetail(order) {
     openNewPurchaseForm({
       prefillOrderId: order.id,
       prefillOrderName: order.name,
-      onDone: async () => { await refreshPurchases(); renderOrderDetail(order); }
+      onDone: async () => { await refreshPurchases(); renderOrderDetail(order, isArchive); }
     });
   };
 

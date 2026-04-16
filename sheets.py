@@ -85,9 +85,9 @@ def _append_order_sync(row: list):
     _get_ws("Actual").append_row(row, value_input_option="USER_ENTERED")
 
 
-def _update_order_sync(order_id: str, col_updates: dict) -> bool:
+def _update_order_sync(order_id: str, col_updates: dict, sheet_name: str = "Actual") -> bool:
     """col_updates: {col_0based: value}"""
-    ws, row_num = _find_order_row_sync(order_id)
+    ws, row_num = _find_order_row_sync(order_id, sheet_name)
     if row_num is None:
         return False
     row = _pad(ws.row_values(row_num), 17)
@@ -152,8 +152,8 @@ async def count_orders() -> int:
 async def append_order(row: list):
     await asyncio.to_thread(_append_order_sync, row)
 
-async def update_order(order_id: str, col_updates: dict) -> bool:
-    return await asyncio.to_thread(_update_order_sync, order_id, col_updates)
+async def update_order(order_id: str, col_updates: dict, sheet_name: str = "Actual") -> bool:
+    return await asyncio.to_thread(_update_order_sync, order_id, col_updates, sheet_name)
 
 async def move_to_archive(order_id: str) -> bool:
     return await asyncio.to_thread(_move_to_archive_sync, order_id)
