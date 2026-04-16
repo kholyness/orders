@@ -562,7 +562,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.6.3';
+const APP_VERSION = '1.6.4';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -765,8 +765,11 @@ document.getElementById('status-popup').addEventListener('click', async e => {
     if (newStatus === 'Отдано') {
       state.orders = state.orders.filter(o => String(o.id) !== String(order.id));
       state.archive.unshift(order);
-      saveCache();
     }
+    if (newStatus === 'Готово' || newStatus === 'Отдано') {
+      state.purchases = state.purchases.filter(p => String(p.orderId) !== String(order.id));
+    }
+    saveCache();
     renderOrders();
     await apiPost({ action: 'updateStatus', id: order.id, status: newStatus });
   }
@@ -1062,6 +1065,7 @@ function renderOrderDetail(order, isArchive = false) {
   if (btnArchive) btnArchive.onclick = async () => {
     btnArchive.disabled = true;
     btnArchive.textContent = 'Переносим...';
+    state.purchases = state.purchases.filter(p => String(p.orderId) !== String(order.id));
     await apiPost({ action: 'archiveOrder', id: order.id });
     const archRes = await apiGet('getArchive');
     state.archive = archRes.orders || [];

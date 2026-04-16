@@ -140,6 +140,18 @@ def _delete_purchase_sync(row_num: int):
     _get_ws("Purchase").delete_rows(row_num)
 
 
+def _delete_purchases_for_order_sync(order_id: str):
+    ws = _get_ws("Purchase")
+    rows = ws.get_all_values()
+    to_delete = [
+        i + 2
+        for i, row in enumerate(rows[1:])
+        if _pad(row, 8)[4].strip() == str(order_id).strip()
+    ]
+    for row_num in reversed(to_delete):
+        ws.delete_rows(row_num)
+
+
 # ── Async wrappers ─────────────────────────────────────────────────────────────
 
 async def get_orders() -> list:
@@ -174,3 +186,6 @@ async def get_purchase_status(row_num: int) -> str | None:
 
 async def delete_purchase(row_num: int):
     await asyncio.to_thread(_delete_purchase_sync, row_num)
+
+async def delete_purchases_for_order(order_id: str):
+    await asyncio.to_thread(_delete_purchases_for_order_sync, order_id)

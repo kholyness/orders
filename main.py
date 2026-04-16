@@ -197,8 +197,11 @@ async def handle_write(action: str, p: dict) -> dict:
         ok = await sheets.update_order(p["id"], {13: p.get("status", "")})
         if p.get("status") == "Отдано":
             await sheets.move_to_archive(p["id"])
+        if p.get("status") in ("Готово", "Отдано"):
+            await sheets.delete_purchases_for_order(p["id"])
         return {"success": ok}
     if action == "archiveOrder":
+        await sheets.delete_purchases_for_order(p["id"])
         return {"success": await sheets.move_to_archive(p["id"])}
     if action == "createPurchase":
         return await create_purchase(p)
@@ -501,10 +504,13 @@ async def handle_bot_message(msg: dict):
                             "готово": "Готово", "отдано": "Отдано"}[label]
             if label == "отдано":
                 ok = await sheets.move_to_archive(order_id)
+                await sheets.delete_purchases_for_order(order_id)
                 await send_message(chat_id,
                     f"📦 Заказ <b>#{order_id}</b> перенесен в архив!" if ok else "❌ Не найден.")
             else:
                 ok = await sheets.update_order(order_id, {13: final_status})
+                if label == "готово":
+                    await sheets.delete_purchases_for_order(order_id)
                 await send_message(chat_id,
                     f"✅ <b>#{order_id}</b> статус: {final_status}" if ok else "❌ Не найден.")
             return
