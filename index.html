@@ -93,11 +93,14 @@
       -webkit-tap-highlight-color: transparent;
     }
     .card:active { opacity: 0.7; }
-    .card-top { display: flex; align-items: center; justify-content: space-between; }
+    .card-top { display: flex; align-items: center; }
     .card-main { flex: 1; min-width: 0; }
     .card-id { font-size: 11px; color: var(--hint); margin-bottom: 1px; }
-    .card-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-id-inline { font-size: 11px; color: var(--hint); font-weight: 400; }
+    .card-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card-subtitle { font-size: 12px; color: var(--hint); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; margin-left: 8px; }
+    .card-right-top { display: flex; align-items: center; gap: 4px; }
     .card-chevron { color: var(--hint); font-size: 20px; margin-left: 8px; flex-shrink: 0; }
     .client-total { font-size: 13px; font-weight: 600; color: var(--text); text-align: right; flex-shrink: 0; margin-left: 8px; }
     .client-chevron { transition: transform 0.2s; display: inline-block; }
@@ -108,7 +111,7 @@
     .client-block:has(.client-orders) .client-header { border-radius: 12px 12px 0 0; }
     .client-order-row { display: flex; align-items: center; padding: 8px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; border-top: 1px solid rgba(128,128,128,0.10); }
     .client-order-row:active { opacity: 0.7; }
-    .msg-btn-wrap { width: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .msg-btn-wrap { flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .msg-btn { background: none; border: none; color: var(--accent); border-radius: 8px; padding: 4px; font-size: 18px; cursor: pointer; flex-shrink: 0; -webkit-tap-highlight-color: transparent; line-height: 1; }
     .card-divider { border: none; border-top: 1px solid rgba(128,128,128,0.15); margin: 6px 0 4px; }
     .card-purchases { display: flex; flex-direction: column; gap: 3px; }
@@ -540,7 +543,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.5.2';
+const APP_VERSION = '1.5.3';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -842,17 +845,18 @@ function renderOrders() {
         const noteIcon = o.note ? `<div class="card-note-icon"><svg width="13" height="10" viewBox="0 0 13 10" fill="currentColor"><rect width="13" height="1.5" rx="0.75"/><rect y="4.25" width="9" height="1.5" rx="0.75"/><rect y="8.5" width="11" height="1.5" rx="0.75"/></svg></div>` : '';
         const isNalichie = o.type === 'Наличие';
         const stockTag = `<span class="card-tag ${isNalichie ? 'have' : 'need'}">${isNalichie ? 'Наличие' : 'Заказ'}</span>`;
-        const metaHtml = (noteIcon || stockTag) ? `<div class="card-meta">${noteIcon}${stockTag}</div>` : '';
+        const metaHtml = noteIcon ? `<div class="card-meta">${noteIcon}</div>` : '';
         html += `
           <div class="card" data-id="${o.id}">
             <div class="card-top">
               <div class="card-main">
-                <div class="card-id">#${o.rowNum}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}</div>
-                <div class="card-title">${orderTitle}</div>
-                <div class="card-subtitle">${clientName}</div>
+                <div class="card-title"><span class="card-id-inline">#${o.rowNum} </span>${orderTitle}</div>
+                <div class="card-subtitle">${clientName}${o.deadline ? ' · ' + deadlineLabel(o.deadline) : ''}</div>
               </div>
-              <div class="msg-btn-wrap">${tgUsername ? `<button class="msg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}</div>
-              <div class="status-badge ${statusBadgeClass(o.status)}" data-badge-id="${o.id}">${esc(o.status || 'Очередь')}</div>
+              <div class="card-right">
+                <div class="card-right-top">${tgUsername ? `<button class="msg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}<div class="status-badge ${statusBadgeClass(o.status)}" data-badge-id="${o.id}">${esc(o.status || 'Очередь')}</div></div>
+                ${stockTag}
+              </div>
             </div>${metaHtml}${purchasesHtml}
           </div>`;
       });
