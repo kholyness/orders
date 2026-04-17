@@ -108,10 +108,17 @@
     .sort-chips { display: flex; gap: 6px; padding: 0 0 8px; }
     .sort-chip { background: var(--bg-secondary); border: none; border-radius: 16px; padding: 5px 12px; font-size: 13px; color: var(--hint); cursor: pointer; -webkit-tap-highlight-color: transparent; }
     .sort-chip-active { background: var(--accent); color: #fff; }
-    .client-block { display: flex; flex-direction: column; gap: 0; }
-    .client-block .client-header { border-radius: 12px; padding: 6px 10px; margin-bottom: 5px; }
-    .client-block .client-orders { background: var(--bg-secondary); border-radius: 0 0 12px 12px; margin-top: -6px; padding: 6px 0 4px; }
-    .client-block:has(.client-orders) .client-header { border-radius: 12px 12px 0 0; }
+    .client-block { display: flex; flex-direction: row; align-items: flex-start; gap: 8px; }
+    .client-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .client-main .client-header { border-radius: 12px; padding: 6px 10px; margin-bottom: 5px; }
+    .client-main .client-orders { background: var(--bg-secondary); border-radius: 0 0 12px 12px; margin-top: -6px; padding: 6px 0 4px; }
+    .client-main:has(.client-orders) .client-header { border-radius: 12px 12px 0 0; }
+    .client-contact-btns { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; flex-shrink: 0; }
+    .client-contact-btn { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.12s; }
+    .client-contact-btn:active { opacity: 0.65; }
+    .client-contact-btn.tg-real { background: rgba(36,129,204,0.12); color: var(--accent); }
+    .client-contact-btn.ig-real { background: rgba(193,53,132,0.1); color: #c13584; }
+    .client-contact-btn.placeholder { background: none; border: 1.5px solid rgba(128,128,128,0.18); color: rgba(128,128,128,0.28); cursor: default; pointer-events: none; }
     .client-order-row { display: flex; align-items: center; padding: 8px 12px 8px 20px; cursor: pointer; -webkit-tap-highlight-color: transparent; border-top: 1px solid rgba(128,128,128,0.10); position: relative; }
     .client-order-row::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: rgba(128,128,128,0.20); border-radius: 2px; }
     .client-order-row:active { opacity: 0.7; }
@@ -568,7 +575,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.7.1';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -1544,18 +1551,24 @@ function renderClients(filter = '') {
 
       html += `
         <div class="client-block">
-          <div class="card client-header" data-client="${esc(c.name)}">
-            <div class="client-name-row">
-              <div class="card-title">${esc(c.name)}${hasActive ? '<span class="client-active-dot"></span>' : ''}</div>
-              <div style="display:flex;gap:6px;align-items:center">
-                ${tgUsername ? `<button class="msg-btn client-tg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}
-                ${igUsername ? `<button class="ig-btn client-ig-btn" data-iguser="${esc(igUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2"/></svg></button>` : ''}
+          <div class="client-main">
+            <div class="card client-header" data-client="${esc(c.name)}">
+              <div class="client-name-row">
+                <div class="card-title">${esc(c.name)}${hasActive ? '<span class="client-active-dot"></span>' : ''}</div>
                 ${totalSpent ? `<div class="client-total">${totalSpent.toLocaleString('ru')} RSD</div>` : ''}
               </div>
+              <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}${sortedOrders[0] && sortedOrders[0].date ? ' · ' + sortedOrders[0].date : ''}</div>
             </div>
-            <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}${sortedOrders[0] && sortedOrders[0].date ? ' · ' + sortedOrders[0].date : ''}</div>
+            ${ordersHtml}
           </div>
-          ${ordersHtml}
+          <div class="client-contact-btns">
+            ${tgUsername
+              ? `<button class="client-contact-btn tg-real client-tg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>`
+              : `<div class="client-contact-btn placeholder"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></div>`}
+            ${igUsername
+              ? `<button class="client-contact-btn ig-real client-ig-btn" data-iguser="${esc(igUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2"/></svg></button>`
+              : `<div class="client-contact-btn placeholder"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2"/></svg></div>`}
+          </div>
         </div>`;
     });
   }
