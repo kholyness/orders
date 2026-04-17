@@ -581,7 +581,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.7.3';
+const APP_VERSION = '1.7.4';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -632,6 +632,8 @@ function saveCache() {
   } catch (e) {}
 }
 
+let archiveReady = false;
+
 function loadCache() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
@@ -640,6 +642,7 @@ function loadCache() {
     state.orders = orders || [];
     state.archive = archive || [];
     state.purchases = purchases || [];
+    if (state.archive.length > 0) archiveReady = true;
     return true;
   } catch (e) { return false; }
 }
@@ -686,11 +689,20 @@ async function apiPost(data) {
 }
 
 async function loadData() {
-  const [a, b, c] = await Promise.all([apiGet('getOrders'), apiGet('getArchive'), apiGet('getPurchases')]);
+  const [a, c] = await Promise.all([apiGet('getOrders'), apiGet('getPurchases')]);
   state.orders = a.orders || [];
-  state.archive = b.orders || [];
   state.purchases = c.purchases || [];
   saveCache();
+}
+
+async function loadArchive() {
+  try {
+    const b = await apiGet('getArchive');
+    state.archive = b.orders || [];
+    archiveReady = true;
+    saveCache();
+    if (state.activeTab === 'clients') renderClients();
+  } catch (e) {}
 }
 
 async function refreshPurchases() {
@@ -1485,6 +1497,10 @@ async function renderStats(forceReload) {
 // ── CLIENTS TAB ───────────────────────────────────────────────────────────────
 function renderClients(filter = '') {
   const el = document.getElementById('tab-clients');
+  if (!archiveReady) {
+    el.innerHTML = '<div class="loading">Загрузка клиентов...</div>';
+    return;
+  }
   const all = state.orders.concat(state.archive);
 
   const map = {};
@@ -1666,10 +1682,11 @@ async function init() {
     return;
   }
   renderOrders();
+  loadArchive(); // fire-and-forget: не блокирует рендер заказов
 
   setInterval(async () => {
     try {
-      await loadData();
+      await Promise.all([loadData(), loadArchive()]);
       renderActiveTab();
     } catch (e) {}
   }, AUTO_REFRESH_MS);
