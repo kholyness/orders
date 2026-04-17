@@ -124,7 +124,12 @@
     .client-order-row::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: rgba(128,128,128,0.20); border-radius: 2px; }
     .client-order-row:active { opacity: 0.7; }
     .msg-btn-wrap { flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-    .msg-btn { background: none; border: none; color: var(--accent); border-radius: 8px; padding: 4px; font-size: 18px; cursor: pointer; flex-shrink: 0; -webkit-tap-highlight-color: transparent; line-height: 1; }
+    .msg-btn { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.12s; background: rgba(36,129,204,0.12); color: var(--accent); flex-shrink: 0; }
+    .msg-btn:active { opacity: 0.65; }
+    .msg-btn svg { width: 14px; height: 14px; }
+    .ig-btn { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.12s; background: rgba(193,53,132,0.1); color: #c13584; flex-shrink: 0; }
+    .ig-btn:active { opacity: 0.65; }
+    .ig-btn svg { width: 14px; height: 14px; }
     .card-divider { border: none; border-top: 1px solid rgba(128,128,128,0.15); margin: 6px 0 4px; }
     .card-purchases { display: flex; flex-direction: column; gap: 3px; }
     .card-purchase-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
@@ -576,7 +581,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.7.2';
+const APP_VERSION = '1.7.3';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
