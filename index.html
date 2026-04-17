@@ -103,6 +103,7 @@
     .card-right-top { display: flex; align-items: center; gap: 4px; }
     .card-chevron { color: var(--hint); font-size: 20px; margin-left: 8px; flex-shrink: 0; }
     .client-name-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .client-active-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4cd964; margin-left: 6px; vertical-align: middle; flex-shrink: 0; }
     .client-total { font-size: 13px; font-weight: 600; color: var(--text); flex-shrink: 0; }
     .client-block { display: flex; flex-direction: column; gap: 0; }
     .client-block .client-header { border-radius: 12px; padding: 6px 10px; margin-bottom: 5px; }
@@ -564,7 +565,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.6.6';
+const APP_VERSION = '1.6.9';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -1497,7 +1498,11 @@ function renderClients(filter = '') {
       const expanded = state.expandedClient === c.name;
       const parsePrice = v => parseFloat((v || '').toString().replace(/\s/g, '').replace(',', '.')) || 0;
       const totalSpent = c.orders.filter(o => o.status === 'Отдано' && !!state.archive.find(a => a.id === o.id)).reduce((sum, o) => sum + parsePrice(o.price), 0);
+      const hasActive = c.orders.some(o => !!state.orders.find(act => act.id === o.id));
       const sortedOrders = [...c.orders].sort((a, b) => toMs(b.date) - toMs(a.date));
+      const tgUsername = (sortedOrders.find(o => o.username) || {}).username || '';
+      const igMatch = sortedOrders.map(o => o.note && (o.note.match(/ig:(\S+)/) || o.note.match(/@([\w.]+)/))).find(Boolean);
+      const igUsername = igMatch ? (igMatch[1] || igMatch[2] || '') : '';
 
       let ordersHtml = '';
       if (expanded) {
@@ -1521,10 +1526,14 @@ function renderClients(filter = '') {
         <div class="client-block">
           <div class="card client-header" data-client="${esc(c.name)}">
             <div class="client-name-row">
-              <div class="card-title">${esc(c.name)}</div>
-              ${totalSpent ? `<div class="client-total">${totalSpent.toLocaleString('ru')} RSD</div>` : ''}
+              <div class="card-title">${esc(c.name)}${hasActive ? '<span class="client-active-dot"></span>' : ''}</div>
+              <div style="display:flex;gap:6px;align-items:center">
+                ${tgUsername ? `<button class="msg-btn client-tg-btn" data-username="${esc(tgUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>` : ''}
+                ${igUsername ? `<button class="ig-btn client-ig-btn" data-iguser="${esc(igUsername)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.2"/></svg></button>` : ''}
+                ${totalSpent ? `<div class="client-total">${totalSpent.toLocaleString('ru')} RSD</div>` : ''}
+              </div>
             </div>
-            <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}</div>
+            <div class="card-subtitle">${c.orders.length} ${declOrders(c.orders.length)}${sortedOrders[0] && sortedOrders[0].date ? ' · ' + sortedOrders[0].date : ''}</div>
           </div>
           ${ordersHtml}
         </div>`;
@@ -1543,6 +1552,20 @@ function renderClients(filter = '') {
       state.expandedClient = state.expandedClient === name ? null : name;
       renderClients(filter);
     };
+  });
+
+  el.querySelectorAll('.client-tg-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      tg.openTelegramLink(`https://t.me/${btn.dataset.username.replace(/^@/, '')}`);
+    });
+  });
+
+  el.querySelectorAll('.client-ig-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      tg.openLink(`https://ig.me/m/${btn.dataset.iguser}`);
+    });
   });
 
   el.querySelectorAll('.client-order-row').forEach(row => {
