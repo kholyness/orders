@@ -113,9 +113,10 @@
     .client-main .client-header { border-radius: 12px; padding: 6px 10px; margin-bottom: 5px; }
     .client-main .client-orders { background: var(--bg-secondary); border-radius: 0 0 12px 12px; margin-top: -6px; padding: 6px 0 4px; }
     .client-main:has(.client-orders) .client-header { border-radius: 12px 12px 0 0; }
-    .client-contact-btns { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; flex-shrink: 0; }
-    .client-contact-btn { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.12s; }
+    .client-contact-btns { display: flex; flex-direction: row; gap: 5px; padding-top: 6px; flex-shrink: 0; align-self: flex-start; }
+    .client-contact-btn { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.12s; }
     .client-contact-btn:active { opacity: 0.65; }
+    .client-contact-btn svg { width: 14px; height: 14px; }
     .client-contact-btn.tg-real { background: rgba(36,129,204,0.12); color: var(--accent); }
     .client-contact-btn.ig-real { background: rgba(193,53,132,0.1); color: #c13584; }
     .client-contact-btn.placeholder { background: none; border: 1.5px solid rgba(128,128,128,0.18); color: rgba(128,128,128,0.28); cursor: default; pointer-events: none; }
@@ -575,7 +576,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.7.1';
+const APP_VERSION = '1.7.2';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
