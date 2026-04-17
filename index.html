@@ -105,6 +105,9 @@
     .client-name-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .client-active-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4cd964; margin-left: 6px; vertical-align: middle; flex-shrink: 0; }
     .client-total { font-size: 13px; font-weight: 600; color: var(--text); flex-shrink: 0; }
+    .sort-chips { display: flex; gap: 6px; padding: 0 0 8px; }
+    .sort-chip { background: var(--bg-secondary); border: none; border-radius: 16px; padding: 5px 12px; font-size: 13px; color: var(--hint); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .sort-chip-active { background: var(--accent); color: #fff; }
     .client-block { display: flex; flex-direction: column; gap: 0; }
     .client-block .client-header { border-radius: 12px; padding: 6px 10px; margin-bottom: 5px; }
     .client-block .client-orders { background: var(--bg-secondary); border-radius: 0 0 12px 12px; margin-top: -6px; padding: 6px 0 4px; }
@@ -565,7 +568,7 @@ function dmyToYmd(d) {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.6.9';
+const APP_VERSION = '1.7.0';
 const SCRIPT_URL = 'https://moroshka-bot.duckdns.org';
 const BOT_USERNAME = 'MoroskaOrder_bot'; // Telegram bot @username without @
 const MODEL_ARTICLES = {
@@ -594,7 +597,8 @@ document.getElementById('app-version').textContent = 'v' + APP_VERSION;
 
 // ── State ────────────────────────────────────────────────────────────────────
 const state = { orders: [], archive: [], purchases: [], activeTab: 'orders', expandedClient: null,
-  statsView: 'month', statsYear: new Date().getFullYear(), statsMonth: new Date().getMonth() + 1 };
+  statsView: 'month', statsYear: new Date().getFullYear(), statsMonth: new Date().getMonth() + 1,
+  clientSortBy: 'count' };
 const COLLAPSED_KEY = 'moroska_collapsed';
 const collapsedSections = new Set(JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'));
 function saveCollapsed() { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsedSections])); }
@@ -1478,26 +1482,42 @@ function renderClients(filter = '') {
     map[name].push(o);
   });
 
+  const toMs = d => { const p = (d||'').split('.'); return p.length===3 ? new Date(+p[2],+p[1]-1,+p[0]).getTime() : 0; };
+  const parsePrice = v => parseFloat((v || '').toString().replace(/\s/g, '').replace(',', '.')) || 0;
+
   let clients = Object.entries(map)
-    .map(([name, orders]) => ({ name, orders }))
-    .sort((a, b) => b.orders.length - a.orders.length);
+    .map(([name, orders]) => {
+      const totalSpent = orders.filter(o => o.status === 'Отдано' && !!state.archive.find(a => a.id === o.id)).reduce((sum, o) => sum + parsePrice(o.price), 0);
+      const lastDate = Math.max(...orders.map(o => toMs(o.date)));
+      return { name, orders, totalSpent, lastDate };
+    })
+    .sort((a, b) => {
+      if (state.clientSortBy === 'date') return b.lastDate - a.lastDate;
+      if (state.clientSortBy === 'sum') return b.totalSpent - a.totalSpent;
+      return b.orders.length - a.orders.length;
+    });
 
   if (filter) clients = clients.filter(c => c.name.toLowerCase().includes(filter.toLowerCase()));
+
+  const sortBtns = [
+    { key: 'count', label: 'По заказам' },
+    { key: 'date',  label: 'По дате' },
+    { key: 'sum',   label: 'По сумме' },
+  ].map(s => `<button class="sort-chip${state.clientSortBy === s.key ? ' sort-chip-active' : ''}" data-sort="${s.key}">${s.label}</button>`).join('');
 
   let html = `
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
       <input class="search-input" id="client-search" placeholder="Поиск по имени" value="${esc(filter)}">
-    </div>`;
+    </div>
+    <div class="sort-chips" id="client-sort-chips">${sortBtns}</div>`;
 
   if (!clients.length) {
     html += '<div class="empty">Клиентов не найдено</div>';
   } else {
-    const toMs = d => { const p = (d||'').split('.'); return p.length===3 ? new Date(+p[2],+p[1]-1,+p[0]).getTime() : 0; };
     clients.forEach(c => {
       const expanded = state.expandedClient === c.name;
-      const parsePrice = v => parseFloat((v || '').toString().replace(/\s/g, '').replace(',', '.')) || 0;
-      const totalSpent = c.orders.filter(o => o.status === 'Отдано' && !!state.archive.find(a => a.id === o.id)).reduce((sum, o) => sum + parsePrice(o.price), 0);
+      const totalSpent = c.totalSpent;
       const hasActive = c.orders.some(o => !!state.orders.find(act => act.id === o.id));
       const sortedOrders = [...c.orders].sort((a, b) => toMs(b.date) - toMs(a.date));
       const tgUsername = (sortedOrders.find(o => o.username) || {}).username || '';
@@ -1544,6 +1564,12 @@ function renderClients(filter = '') {
   document.getElementById('client-search').oninput = e => {
     state.expandedClient = null;
     renderClients(e.target.value);
+  };
+  document.getElementById('client-sort-chips').onclick = e => {
+    const btn = e.target.closest('[data-sort]');
+    if (!btn) return;
+    state.clientSortBy = btn.dataset.sort;
+    renderClients(filter);
   };
 
   el.querySelectorAll('.client-header').forEach(header => {
