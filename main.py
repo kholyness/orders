@@ -414,7 +414,7 @@ async def get_models_stat(month_arg: str | None) -> str:
 async def add_new_order_from_bot(chat_id, text: str):
     lines = text.split("\n")
     d = {"name": "Имя", "username": "", "clientId": "", "item": "Изделие", "model": "Не указана",
-         "details": "", "price": "0", "deadline": "", "comment": ""}
+         "details": "", "price": "0", "deadline": "", "comment": "", "note": ""}
     for line in lines:
         if ":" not in line:
             continue
@@ -424,6 +424,7 @@ async def add_new_order_from_bot(chat_id, text: str):
             "имя": "name", "username": "username", "id клиента": "clientId",
             "изделие": "item", "модель": "model", "детали": "details",
             "цена": "price", "срок": "deadline", "комментарий": "comment",
+            "заметка": "note",
         }
         for ru, en in mapping.items():
             if ru in key.lower():
@@ -491,20 +492,20 @@ async def handle_bot_message(msg: dict):
                 elif forward_origin.get("type") == "hidden_user":
                     name = forward_origin.get("sender_user_name", "")
             username_str = f"@{username}" if username else ""
-            models = "Lada, Larna, Verbena, Ilma, ролл, тарелочка, мусорничка, чехол пяльца, чехол рама, Taloma, Tala, Loboda"
+            models = "Слинг Verbena, Кроссбоди Lada, Кроссбоди Larna, Шоппер Tala, Шоппер Taloma, Рюкзак L, Брелок Ilma, Ролл для вышивки, Чехол на пяльца, Ловушка для ниток, Корзинка Loboda, Тарелочка, Мешочки для упаковки"
             await send_message(chat_id,
                 f"👤 <b>{name}</b>{' / ' + username_str if username_str else ''}\n\n"
                 f"Заполни и отправь:\n\n"
                 f"Новый заказ\nИмя: {name}\nUsername: {username_str}\nID клиента: {client_id}\n"
-                f"Изделие: \nМодель: \nДетали: \nЦена: \nСрок: \nКомментарий: \n\n"
+                f"Изделие: \nМодель: \nДетали: \nЦена: \nСрок: \nКомментарий: \nЗаметка: \n\n"
                 f"💡 <b>Модели:</b> <i>{models}</i>")
             return
 
         if text in ("/new", "/start"):
-            models = "Lada, Larna, Verbena, Ilma, ролл, тарелочка, мусорничка, чехол пяльца, чехол рама, Taloma, Tala, Loboda"
+            models = "Слинг Verbena, Кроссбоди Lada, Кроссбоди Larna, Шоппер Tala, Шоппер Taloma, Рюкзак L, Брелок Ilma, Ролл для вышивки, Чехол на пяльца, Ловушка для ниток, Корзинка Loboda, Тарелочка, Мешочки для упаковки"
             await send_message(chat_id,
                 f"🧶 <b>Шаблон Moroska:</b>\n\nНовый заказ\nИмя: \nUsername: \nИзделие: \nМодель: \n"
-                f"Детали: \nЦена: \nСрок: \nКомментарий: \n\n💡 <b>Твои модели:</b>\n<i>{models}</i>")
+                f"Детали: \nЦена: \nСрок: \nКомментарий: \nЗаметка: \n\n💡 <b>Твои модели:</b>\n<i>{models}</i>")
             return
 
         if text.lower() == "/work":
