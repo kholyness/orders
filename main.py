@@ -413,7 +413,7 @@ async def get_models_stat(month_arg: str | None) -> str:
 
 async def add_new_order_from_bot(chat_id, text: str):
     lines = text.split("\n")
-    d = {"name": "Имя", "username": "", "item": "Изделие", "model": "Не указана",
+    d = {"name": "Имя", "username": "", "clientId": "", "item": "Изделие", "model": "Не указана",
          "details": "", "price": "0", "deadline": "", "comment": ""}
     for line in lines:
         if ":" not in line:
@@ -421,9 +421,9 @@ async def add_new_order_from_bot(chat_id, text: str):
         key, _, val = line.partition(":")
         val = val.strip()
         mapping = {
-            "имя": "name", "username": "username", "изделие": "item",
-            "модель": "model", "детали": "details", "цена": "price",
-            "срок": "deadline", "комментарий": "comment",
+            "имя": "name", "username": "username", "id клиента": "clientId",
+            "изделие": "item", "модель": "model", "детали": "details",
+            "цена": "price", "срок": "deadline", "комментарий": "comment",
         }
         for ru, en in mapping.items():
             if ru in key.lower():
@@ -473,6 +473,33 @@ async def handle_bot_message(msg: dict):
     logger.info("bot msg chat=%s text=%r", chat_id, text)
 
     try:
+        # Forwarded message — pre-fill order template with client info
+        forward_from = msg.get("forward_from")
+        forward_origin = msg.get("forward_origin")
+        if forward_from or forward_origin:
+            name, username, client_id = "", "", ""
+            if forward_from:
+                name = f"{forward_from.get('first_name', '')} {forward_from.get('last_name', '')}".strip()
+                username = forward_from.get("username", "")
+                client_id = str(forward_from.get("id", ""))
+            elif forward_origin:
+                if forward_origin.get("type") == "user":
+                    u = forward_origin.get("sender_user", {})
+                    name = f"{u.get('first_name', '')} {u.get('last_name', '')}".strip()
+                    username = u.get("username", "")
+                    client_id = str(u.get("id", ""))
+                elif forward_origin.get("type") == "hidden_user":
+                    name = forward_origin.get("sender_user_name", "")
+            username_str = f"@{username}" if username else ""
+            models = "Lada, Larna, Verbena, Ilma, ролл, тарелочка, мусорничка, чехол пяльца, чехол рама, Taloma, Tala, Loboda"
+            await send_message(chat_id,
+                f"👤 <b>{name}</b>{' / ' + username_str if username_str else ''}\n\n"
+                f"Заполни и отправь:\n\n"
+                f"Новый заказ\nИмя: {name}\nUsername: {username_str}\nID клиента: {client_id}\n"
+                f"Изделие: \nМодель: \nДетали: \nЦена: \nСрок: \nКомментарий: \n\n"
+                f"💡 <b>Модели:</b> <i>{models}</i>")
+            return
+
         if text in ("/new", "/start"):
             models = "Lada, Larna, Verbena, Ilma, ролл, тарелочка, мусорничка, чехол пяльца, чехол рама, Taloma, Tala, Loboda"
             await send_message(chat_id,
